@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "cesium": "^1.118.0",
+    "geotiff": "^3.0.5",
     "papaparse": "^5.4.1",
     "plotly.js-dist-min": "^2.33.0",
     "three": "^0.184.0"
