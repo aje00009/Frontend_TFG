@@ -1,0 +1,24 @@
+{
+  "species": "Pinus uncinata Ramond ex DC.",
+  "algorithm": "Random Forest",
+  "algorithmType": 0,
+  "ensembleSize": 1,
+  "probabilityThreshold": 0.5,
+  "thinningCellSizeKm": 1,
+  "useJitter": true,
+  "jitterMeters": 500,
+  "useClamping": false,
+  "clipToDEMExtent": true,
+  "predictionMarginDeg": 1.5,
+  "useVariableSelection": true,
+  "corrThreshold": 0.85,
+  "vifThreshold": 10,
+  "selectedFeatureCount": 9,
+  "selectedFeatureIndices": [1, 2, 3, 4, 6, 7, 8, 9, 14],
+  "hyperparameters": {
+    "numTrees": 250,
+    "maxDepth": 7,
+    "minSamples": 10,
+    "activeVarCount": "cols/3"
+  }
+}

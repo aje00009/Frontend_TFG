@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GEU - Predicción de Especies</title>
+    <!-- Cesium assets deben cargarse ANTES de importar el módulo JS -->
+    <script>window.CESIUM_BASE_URL = 'https://unpkg.com/cesium@1.118.0/Build/Cesium/';</script>
+  </head>
+  <body class="bg-geu-bg text-gray-100 antialiased">
+    <div id="app">
+      <!-- Hero -->
+      <section id="hero" class="relative h-screen flex items-center justify-center overflow-hidden"></section>
+
+      <!-- Mapa Principal -->
+      <section id="map-section" class="relative h-screen flex flex-col">
+        <div id="scenario-selector" class="absolute top-4 left-1/2 -translate-x-1/2 z-10"></div>
+        <div id="map-container" class="flex-1 w-full"></div>
+      </section>
+
+      <!-- Dashboard Métricas -->
+      <section id="dashboard" class="py-16 px-6 max-w-7xl mx-auto"></section>
+
+      <!-- Curvas de Respuesta -->
+      <section id="curves" class="py-16 px-6 max-w-7xl mx-auto"></section>
+
+      <!-- Mapa de Diferencias -->
+      <section id="diff" class="py-16 px-6 max-w-7xl mx-auto"></section>
+
+      <!-- Visualización 3D con Árboles -->
+      <section id="scene3d" class="h-screen relative"></section>
+
+      <!-- Descargas -->
+      <section id="downloads" class="py-16 px-6 max-w-7xl mx-auto"></section>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

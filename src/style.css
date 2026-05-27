@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    background-color: #232323;
+    color: #f3f4f6;
+  }
+}
+
+@layer components {
+  .geu-card {
+    @apply bg-geu-panel rounded-xl p-6 shadow-lg border border-white/10;
+  }
+  .geu-btn {
+    @apply px-5 py-2.5 rounded-lg font-medium transition-colors bg-geu-accent hover:bg-blue-600 text-white;
+  }
+  .geu-btn-outline {
+    @apply px-5 py-2.5 rounded-lg font-medium transition-colors border border-geu-accent text-geu-accent hover:bg-geu-accent hover:text-white;
+  }
+  .geu-select {
+    @apply bg-geu-panel border border-white/20 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-geu-accent text-white;
+  }
+}
