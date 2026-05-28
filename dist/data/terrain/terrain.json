@@ -1,0 +1,15 @@
+{
+  "width": 1009,
+  "height": 516,
+  "originalWidth": 18175,
+  "originalHeight": 9304,
+  "step": 18,
+  "bbox": {
+    "west": -0.19672711011824806,
+    "south": 42.32227395893325,
+    "east": 0.8234541089706632,
+    "north": 42.84451693348088
+  },
+  "minElevation": 504.248046875,
+  "maxElevation": 3366.21923828125
+}

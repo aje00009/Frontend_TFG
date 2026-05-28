@@ -2,17 +2,23 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { loadDEM, createTerrainGeometry, lonLatToMeters } from '../utils/terrainLoader.js';
 import { loadPointCloud, pointsToGeometry } from '../utils/pointCloudLoader.js';
-import { getPaths } from '../utils/config.js';
-
-const CLOUD_OPTIONS = [
-  { label: 'nube.ply (3.9 MB)', url: '/data/pointcloud/nube.ply' },
-  { label: 'nube126.ply (392 MB)', url: '/data/pointcloud/nube126.ply' },
-  { label: 'nubeInterpolada.ply (392 MB)', url: '/data/pointcloud/nubeInterpolada.ply' },
-];
+import { SCENARIOS, getPaths } from '../utils/config.js';
 
 export async function initScene3D(containerId, initialScenario) {
   const container = document.getElementById(containerId);
   if (!container) return;
+
+  // Cargar lista de nubes disponibles dinámicamente
+  let cloudOptions = [];
+  try {
+    const res = await fetch('/data/pointcloud/index.json');
+    if (res.ok) cloudOptions = await res.json();
+  } catch (e) {
+    console.warn('[Scene3D] No se pudo cargar index.json de pointclouds');
+  }
+  if (!cloudOptions.length) {
+    cloudOptions = [{ label: 'Sin nubes disponibles', url: '' }];
+  }
 
   container.innerHTML = `
     <div id="three-canvas" class="w-full h-full relative">
@@ -21,8 +27,8 @@ export async function initScene3D(containerId, initialScenario) {
       </div>
       <div class="absolute top-3 right-3 z-10 bg-black/60 backdrop-blur px-3 py-2 rounded-lg border border-white/10 flex items-center gap-2">
         <label class="text-xs text-gray-400">Nube:</label>
-        <select id="cloud-select" class="geu-select text-xs py-1 min-w-[180px]">
-          ${CLOUD_OPTIONS.map(o => `<option value="${o.url}">${o.label}</option>`).join('')}
+        <select id="cloud-select" class="geu-select text-xs py-1 min-w-[220px]">
+          ${cloudOptions.map(o => `<option value="${o.url}">${o.label}</option>`).join('')}
         </select>
       </div>
     </div>
@@ -68,7 +74,7 @@ export async function initScene3D(containerId, initialScenario) {
   let refLat = 42.5;
   let terrainMinElevation = 0;
   let terrainMaxElevation = 0;
-  let currentCloudUrl = CLOUD_OPTIONS[0].url;
+  let currentCloudUrl = cloudOptions[0]?.url || '';
 
   // === CARGAR TERRENO ===
   async function loadTerrain() {
@@ -321,16 +327,37 @@ export async function initScene3D(containerId, initialScenario) {
   });
 
   if (cloudSelect) {
+    let isLoadingCloud = false;
     cloudSelect.addEventListener('change', async (e) => {
+      if (isLoadingCloud) return;
+      isLoadingCloud = true;
+
+      const selectedOption = cloudOptions.find(o => o.url === e.target.value);
+      console.log('[Scene3D] Cambio de nube a:', e.target.value, 'escenario:', selectedOption?.scenarioId);
       currentCloudUrl = e.target.value;
+
+      // Cambiar heatmap al escenario correspondiente
+      if (selectedOption?.scenarioId) {
+        const scenario = SCENARIOS.find(s => s.id === selectedOption.scenarioId);
+        if (scenario) {
+          window.dispatchEvent(new CustomEvent('scenario-changed', {
+            detail: { ...scenario, paths: getPaths(scenario) }
+          }));
+        }
+      }
+
       if (pointCloudMesh) {
+        console.log('[Scene3D] Eliminando nube anterior');
         worldGroup.remove(pointCloudMesh);
         pointCloudMesh.geometry.dispose();
         pointCloudMesh.material.dispose();
         pointCloudMesh = null;
       }
       await loadPointCloudScene();
+      isLoadingCloud = false;
     });
+  } else {
+    console.warn('[Scene3D] No se encontró el selector de nube');
   }
 
   function animate() {

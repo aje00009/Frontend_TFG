@@ -1,0 +1,7 @@
+[
+  { "label": "Actual", "url": "/data/pointcloud/Pinus_uncinata_Ramond_ex_DC._Random_Forest_Actual.ply", "scenarioId": "actual" },
+  { "label": "SSP1-2.6 (Sostenibilidad)", "url": "/data/pointcloud/Pinus_uncinata_Ramond_ex_DC._Random_Forest_SSP1-2.6_(Sostenibilidad)_2081-2100(1).ply", "scenarioId": "ssp126_2081_2100" },
+  { "label": "SSP2-4.5 (Intermedio)", "url": "/data/pointcloud/Pinus_uncinata_Ramond_ex_DC._Random_Forest_SSP2-4.5_(Intermedio)_2081-2100.ply", "scenarioId": "ssp245_2081_2100" },
+  { "label": "SSP3-7.0 (Rivalidad)", "url": "/data/pointcloud/Pinus_uncinata_Ramond_ex_DC._Random_Forest_SSP3-7.0_(Rivalidad_regional)_2081-2100.ply", "scenarioId": "ssp370_2081_2100" },
+  { "label": "SSP5-8.5 (Fósiles)", "url": "/data/pointcloud/Pinus_uncinata_Ramond_ex_DC._Random_Forest_SSP5-8.5_(Combustibles_fosiles)_2081-2100.ply", "scenarioId": "ssp585_2081_2100" }
+]

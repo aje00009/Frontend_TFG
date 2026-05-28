@@ -1,0 +1,152 @@
+<VRTDataset rasterXSize="18175" rasterYSize="9304">
+  <SRS dataAxisToSRSAxisMapping="2,1">GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AXIS["Latitude",NORTH],AXIS["Longitude",EAST],AUTHORITY["EPSG","4326"]]</SRS>
+  <GeoTransform> -1.9672711011824806e-01,  5.6131016180957983e-05,  0.0000000000000000e+00,  4.2844516933480882e+01,  0.0000000000000000e+00, -5.6131016180957983e-05</GeoTransform>
+  <VRTRasterBand dataType="Float32" band="1">
+    <NoDataValue>-32767</NoDataValue>
+    <ColorInterp>Gray</ColorInterp>
+    <ComplexSource>
+      <SourceFilename relativeToVRT="0">C:\Users\alber\GEU\DataPredictionSpecies\Elevacion\MDE_Pirineos_Huesca_5m\combi\PNOA_MDT05_ETRS89_HU30_0146_LID_WGS84.tif</SourceFilename>
+      <SourceBand>1</SourceBand>
+      <SourceProperties RasterXSize="6288" RasterYSize="3317" DataType="Float32" BlockXSize="6288" BlockYSize="1" />
+      <SrcRect xOff="0" yOff="0" xSize="6288" ySize="3317" />
+      <DstRect xOff="16.8093328803701" yOff="35.7620356329719" xSize="6249.51651604798" ySize="3296.69947260355" />
+      <NODATA>-32767</NODATA>
+    </ComplexSource>
+    <ComplexSource>
+      <SourceFilename relativeToVRT="0">C:\Users\alber\GEU\DataPredictionSpecies\Elevacion\MDE_Pirineos_Huesca_5m\combi\PNOA_MDT05_ETRS89_HU30_0147_LID_WGS84.tif</SourceFilename>
+      <SourceBand>1</SourceBand>
+      <SourceProperties RasterXSize="6329" RasterYSize="3357" DataType="Float32" BlockXSize="6329" BlockYSize="1" />
+      <SrcRect xOff="0" yOff="0" xSize="6329" ySize="3357" />
+      <DstRect xOff="5940.30384867106" yOff="18.8232214943178" xSize="6280.20468223597" ySize="3331.11820481374" />
+      <NODATA>-32767</NODATA>
+    </ComplexSource>
+    <ComplexSource>
+      <SourceFilename relativeToVRT="0">C:\Users\alber\GEU\DataPredictionSpecies\Elevacion\MDE_Pirineos_Huesca_5m\combi\PNOA_MDT05_ETRS89_HU30_0148_LID_WGS84.tif</SourceFilename>
+      <SourceBand>1</SourceBand>
+      <SourceProperties RasterXSize="6371" RasterYSize="3398" DataType="Float32" BlockXSize="6371" BlockYSize="1" />
+      <SrcRect xOff="0" yOff="0" xSize="6370.6140814284" ySize="3398" />
+      <DstRect xOff="11863.7585823574" yOff="0" xSize="6311.24141764261" ySize="3366.3314184527" />
+      <NODATA>-32767</NODATA>
+    </ComplexSource>
+    <ComplexSource>
+      <SourceFilename relativeToVRT="0">C:\Users\alber\GEU\DataPredictionSpecies\Elevacion\MDE_Pirineos_Huesca_5m\combi\PNOA_MDT05_ETRS89_HU30_0178_LID_WGS84.tif</SourceFilename>
+      <SourceBand>1</SourceBand>
+      <SourceProperties RasterXSize="6297" RasterYSize="3323" DataType="Float32" BlockXSize="6297" BlockYSize="1" />
+      <SrcRect xOff="0" yOff="0" xSize="6297" ySize="3323" />
+      <DstRect xOff="18.2173995443792" yOff="3005.17396765644" xSize="6247.79336468322" ySize="3297.03308731814" />
+      <NODATA>-32767</NODATA>
+    </ComplexSource>
+    <ComplexSource>
+      <SourceFilename relativeToVRT="0">C:\Users\alber\GEU\DataPredictionSpecies\Elevacion\MDE_Pirineos_Huesca_5m\combi\PNOA_MDT05_ETRS89_HU30_0179_LID_WGS84.tif</SourceFilename>
+      <SourceBand>1</SourceBand>
+      <SourceProperties RasterXSize="6338" RasterYSize="3363" DataType="Float32" BlockXSize="6338" BlockYSize="1" />
+      <SrcRect xOff="0" yOff="0" xSize="6338" ySize="3363" />
+      <DstRect xOff="5941.16804530234" yOff="2986.54371241738" xSize="6278.51628909841" ySize="3331.43740615935" />
+      <NODATA>-32767</NODATA>
+    </ComplexSource>
+    <ComplexSource>
+      <SourceFilename relativeToVRT="0">C:\Users\alber\GEU\DataPredictionSpecies\Elevacion\MDE_Pirineos_Huesca_5m\combi\PNOA_MDT05_ETRS89_HU30_0180_LID_WGS84.tif</SourceFilename>
+      <SourceBand>1</SourceBand>
+      <SourceProperties RasterXSize="6379" RasterYSize="3402" DataType="Float32" BlockXSize="6379" BlockYSize="1" />
+      <SrcRect xOff="0" yOff="0" xSize="6379" ySize="3402" />
+      <DstRect xOff="11863.9086208411" yOff="2970.82222809062" xSize="6309.35842238788" ySize="3364.85928091606" />
+      <NODATA>-32767</NODATA>
+    </ComplexSource>
+    <ComplexSource>
+      <SourceFilename relativeToVRT="0">C:\Users\alber\GEU\DataPredictionSpecies\Elevacion\MDE_Pirineos_Huesca_5m\combi\PNOA_MDT05_ETRS89_HU30_0211_LID_WGS84.tif</SourceFilename>
+      <SourceBand>1</SourceBand>
+      <SourceProperties RasterXSize="6304" RasterYSize="3328" DataType="Float32" BlockXSize="6304" BlockYSize="1" />
+      <SrcRect xOff="0" yOff="0" xSize="6304" ySize="3328" />
+      <DstRect xOff="20.0380327730873" yOff="5974.66204900637" xSize="6243.85950168159" ySize="3296.25070139536" />
+      <NODATA>-32767</NODATA>
+    </ComplexSource>
+    <ComplexSource>
+      <SourceFilename relativeToVRT="0">C:\Users\alber\GEU\DataPredictionSpecies\Elevacion\MDE_Pirineos_Huesca_5m\combi\PNOA_MDT05_ETRS89_HU30_0212_LID_WGS84.tif</SourceFilename>
+      <SourceBand>1</SourceBand>
+      <SourceProperties RasterXSize="6347" RasterYSize="3369" DataType="Float32" BlockXSize="6347" BlockYSize="1" />
+      <SrcRect xOff="0" yOff="0" xSize="6347" ySize="3369" />
+      <DstRect xOff="5942.41723044088" yOff="5955.93974848237" xSize="6276.85741358477" ySize="3331.7681780947" />
+      <NODATA>-32767</NODATA>
+    </ComplexSource>
+    <ComplexSource>
+      <SourceFilename relativeToVRT="0">C:\Users\alber\GEU\DataPredictionSpecies\Elevacion\MDE_Pirineos_Huesca_5m\combi\PNOA_MDT05_ETRS89_HU30_0213_LID_WGS84.tif</SourceFilename>
+      <SourceBand>1</SourceBand>
+      <SourceProperties RasterXSize="6389" RasterYSize="3407" DataType="Float32" BlockXSize="6389" BlockYSize="1" />
+      <SrcRect xOff="0" yOff="0" xSize="6389" ySize="3406.55039530195" />
+      <DstRect xOff="11864.5773384412" yOff="5940.11390952544" xSize="6308.98291176958" ySize="3363.88609047456" />
+      <NODATA>-32767</NODATA>
+    </ComplexSource>
+    <ComplexSource>
+      <SourceFilename relativeToVRT="0">C:\Users\alber\GEU\DataPredictionSpecies\Elevacion\MDE_Pirineos_Huesca_5m\combi\PNOA_MDT05_ETRS89_HU31_0146_LID_WGS84.tif</SourceFilename>
+      <SourceBand>1</SourceBand>
+      <SourceProperties RasterXSize="6179" RasterYSize="3262" DataType="Float32" BlockXSize="6179" BlockYSize="1" />
+      <SrcRect xOff="0" yOff="0" xSize="6179" ySize="3262" />
+      <DstRect xOff="0" yOff="33.3179253721193" xSize="6251.74194002012" ySize="3300.40171683859" />
+      <NODATA>-32767</NODATA>
+    </ComplexSource>
+    <ComplexSource>
+      <SourceFilename relativeToVRT="0">C:\Users\alber\GEU\DataPredictionSpecies\Elevacion\MDE_Pirineos_Huesca_5m\combi\PNOA_MDT05_ETRS89_HU31_0147_LID_WGS84.tif</SourceFilename>
+      <SourceBand>1</SourceBand>
+      <SourceProperties RasterXSize="6151" RasterYSize="3229" DataType="Float32" BlockXSize="6151" BlockYSize="1" />
+      <SrcRect xOff="0" yOff="0" xSize="6151" ySize="3229" />
+      <DstRect xOff="5954.68336613769" yOff="50.9983435843361" xSize="6220.65799620935" ySize="3265.56733372785" />
+      <NODATA>-32767</NODATA>
+    </ComplexSource>
+    <ComplexSource>
+      <SourceFilename relativeToVRT="0">C:\Users\alber\GEU\DataPredictionSpecies\Elevacion\MDE_Pirineos_Huesca_5m\combi\PNOA_MDT05_ETRS89_HU31_0148_LID_WGS84.tif</SourceFilename>
+      <SourceBand>1</SourceBand>
+      <SourceProperties RasterXSize="6123" RasterYSize="3196" DataType="Float32" BlockXSize="6123" BlockYSize="1" />
+      <SrcRect xOff="0" yOff="0" xSize="6123" ySize="3196" />
+      <DstRect xOff="11907.3177411058" yOff="68.4160479035145" xSize="6189.49478251302" ySize="3230.70803934535" />
+      <NODATA>-32767</NODATA>
+    </ComplexSource>
+    <ComplexSource>
+      <SourceFilename relativeToVRT="0">C:\Users\alber\GEU\DataPredictionSpecies\Elevacion\MDE_Pirineos_Huesca_5m\combi\PNOA_MDT05_ETRS89_HU31_0178_LID_WGS84.tif</SourceFilename>
+      <SourceBand>1</SourceBand>
+      <SourceProperties RasterXSize="6189" RasterYSize="3268" DataType="Float32" BlockXSize="6189" BlockYSize="1" />
+      <SrcRect xOff="0" yOff="0" xSize="6189" ySize="3268" />
+      <DstRect xOff="0.381516319490303" yOff="3002.7260310307" xSize="6249.83238777279" ySize="3300.12154519979" />
+      <NODATA>-32767</NODATA>
+    </ComplexSource>
+    <ComplexSource>
+      <SourceFilename relativeToVRT="0">C:\Users\alber\GEU\DataPredictionSpecies\Elevacion\MDE_Pirineos_Huesca_5m\combi\PNOA_MDT05_ETRS89_HU31_0179_LID_WGS84.tif</SourceFilename>
+      <SourceBand>1</SourceBand>
+      <SourceProperties RasterXSize="6161" RasterYSize="3235" DataType="Float32" BlockXSize="6161" BlockYSize="1" />
+      <SrcRect xOff="0" yOff="0" xSize="6161" ySize="3235" />
+      <DstRect xOff="5954.30417748763" yOff="3020.48456562216" xSize="6218.8632094445" ySize="3265.38264608878" />
+      <NODATA>-32767</NODATA>
+    </ComplexSource>
+    <ComplexSource>
+      <SourceFilename relativeToVRT="0">C:\Users\alber\GEU\DataPredictionSpecies\Elevacion\MDE_Pirineos_Huesca_5m\combi\PNOA_MDT05_ETRS89_HU31_0180_LID_WGS84.tif</SourceFilename>
+      <SourceBand>1</SourceBand>
+      <SourceProperties RasterXSize="6133" RasterYSize="3204" DataType="Float32" BlockXSize="6133" BlockYSize="1" />
+      <SrcRect xOff="0" yOff="0" xSize="6133" ySize="3204" />
+      <DstRect xOff="11908.2991769987" yOff="3036.32343365143" xSize="6187.45671677679" ySize="3232.44926146304" />
+      <NODATA>-32767</NODATA>
+    </ComplexSource>
+    <ComplexSource>
+      <SourceFilename relativeToVRT="0">C:\Users\alber\GEU\DataPredictionSpecies\Elevacion\MDE_Pirineos_Huesca_5m\combi\PNOA_MDT05_ETRS89_HU31_0211_LID_WGS84.tif</SourceFilename>
+      <SourceBand>1</SourceBand>
+      <SourceProperties RasterXSize="6200" RasterYSize="3274" DataType="Float32" BlockXSize="6200" BlockYSize="1" />
+      <SrcRect xOff="0" yOff="0" xSize="6200" ySize="3274" />
+      <DstRect xOff="0.282294006611154" yOff="5972.15596341642" xSize="6249.22079014918" ySize="3299.99175273362" />
+      <NODATA>-32767</NODATA>
+    </ComplexSource>
+    <ComplexSource>
+      <SourceFilename relativeToVRT="0">C:\Users\alber\GEU\DataPredictionSpecies\Elevacion\MDE_Pirineos_Huesca_5m\combi\PNOA_MDT05_ETRS89_HU31_0212_LID_WGS84.tif</SourceFilename>
+      <SourceBand>1</SourceBand>
+      <SourceProperties RasterXSize="6171" RasterYSize="3243" DataType="Float32" BlockXSize="6171" BlockYSize="1" />
+      <SrcRect xOff="0" yOff="0" xSize="6171" ySize="3243" />
+      <DstRect xOff="5955.59066456033" yOff="5988.39833135514" xSize="6216.76051230113" ySize="3267.04818366433" />
+      <NODATA>-32767</NODATA>
+    </ComplexSource>
+    <ComplexSource>
+      <SourceFilename relativeToVRT="0">C:\Users\alber\GEU\DataPredictionSpecies\Elevacion\MDE_Pirineos_Huesca_5m\combi\PNOA_MDT05_ETRS89_HU31_0213_LID_WGS84.tif</SourceFilename>
+      <SourceBand>1</SourceBand>
+      <SourceProperties RasterXSize="6143" RasterYSize="3210" DataType="Float32" BlockXSize="6143" BlockYSize="1" />
+      <SrcRect xOff="0" yOff="0" xSize="6143" ySize="3210" />
+      <DstRect xOff="11908.9617056577" yOff="6005.91437860756" xSize="6185.82084721716" ySize="3232.37586188623" />
+      <NODATA>-32767</NODATA>
+    </ComplexSource>
+  </VRTRasterBand>
+</VRTDataset>
