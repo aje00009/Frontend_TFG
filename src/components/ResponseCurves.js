@@ -1,10 +1,17 @@
 import { loadCsv } from '../utils/dataLoader.js';
-import { getCurvesPath } from '../utils/config.js';
+import { loadSpeciesIndex, getCurvesPath } from '../utils/config.js';
 import Plotly from 'plotly.js-dist-min';
 
-export function initResponseCurves(containerId) {
+export async function initResponseCurves(containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
+
+  let index;
+  try {
+    index = await loadSpeciesIndex();
+  } catch (err) {
+    console.error('[ResponseCurves] Error cargando catálogo:', err);
+  }
 
   container.innerHTML = `
     <h2 class="text-3xl font-bold mb-2 text-center">Curvas de Respuesta</h2>
@@ -25,13 +32,19 @@ export function initResponseCurves(containerId) {
   const info = container.querySelector('#curves-info');
 
   let allData = [];
+  let currentVariable = null;
 
-  async function load() {
-    const rows = await loadCsv(getCurvesPath());
+  async function load(model) {
+    if (!model) {
+      info.classList.remove('hidden');
+      return;
+    }
+    const rows = await loadCsv(getCurvesPath(index, model.species.id, model.algorithm.id));
     if (!rows || rows.length === 0) {
       info.classList.remove('hidden');
       return;
     }
+    info.classList.add('hidden');
     allData = rows;
 
     const variables = [...new Set(rows.map(r => r.Variable).filter(Boolean))];
@@ -39,8 +52,9 @@ export function initResponseCurves(containerId) {
       variables.map(v => `<option value="${v}">${v}</option>`).join('');
 
     if (variables.length > 0) {
-      bioSelect.value = variables[0];
-      draw(variables[0]);
+      const target = currentVariable && variables.includes(currentVariable) ? currentVariable : variables[0];
+      bioSelect.value = target;
+      draw(target);
     }
   }
 
@@ -93,5 +107,5 @@ export function initResponseCurves(containerId) {
   }
 
   bioSelect.addEventListener('change', () => draw(bioSelect.value));
-  load();
+  window.addEventListener('model-changed', (e) => load(e.detail));
 }

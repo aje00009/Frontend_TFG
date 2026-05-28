@@ -1,0 +1,43 @@
+{
+  "species": [
+    {
+      "id": "Pinus_uncinata",
+      "label": "Pinus uncinata",
+      "algorithms": [
+        {
+          "id": "Random_Forest",
+          "label": "Random Forest",
+          "prefix": "Pinus_uncinata_Ramond_ex_DC._Random_Forest",
+          "periods": [
+            "2021_2040",
+            "2041_2060",
+            "2061_2080",
+            "2081_2100"
+          ],
+          "ssps": [
+            {
+              "id": "ssp126",
+              "label": "SSP1-2.6",
+              "suffix": "SSP1-2.6_(Sostenibilidad)"
+            },
+            {
+              "id": "ssp245",
+              "label": "SSP2-4.5",
+              "suffix": "SSP2-4.5_(Intermedio)"
+            },
+            {
+              "id": "ssp370",
+              "label": "SSP3-7.0",
+              "suffix": "SSP3-7.0_(Rivalidad_regional)"
+            },
+            {
+              "id": "ssp585",
+              "label": "SSP5-8.5",
+              "suffix": "SSP5-8.5_(Combustibles_fosiles)"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

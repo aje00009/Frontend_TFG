@@ -8,25 +8,20 @@ import { initDiffMap } from './components/DiffMap.js';
 import { initScene3D } from './components/Scene3D.js';
 import { initDownloads } from './components/Downloads.js';
 
-const DISPLAY_NAME = 'Pinus uncinata';
-
 (async function bootstrap() {
-  initHero(DISPLAY_NAME);
+  initHero('Pinus uncinata');
 
-  // Escenario actual (se actualiza cuando el usuario cambia el dropdown)
-  let currentScenario = null;
-  initScenarioSelector((scenario) => {
-    currentScenario = scenario;
-    window.dispatchEvent(new CustomEvent('scenario-changed', { detail: scenario }));
+  // Modelo actual (especie + algoritmo + período + escenario)
+  let currentModel = null;
+  await initScenarioSelector((model) => {
+    currentModel = model;
+    window.dispatchEvent(new CustomEvent('model-changed', { detail: model }));
   });
-
-  // Esperamos a que el primer escenario esté seleccionado (es síncrono, pero por si acaso)
-  await new Promise(r => setTimeout(r, 50));
 
   await initMapViewer('map-container');
   initDashboard('dashboard');
   initResponseCurves('curves');
   initDiffMap('diff');
-  await initScene3D('scene3d', currentScenario);
+  await initScene3D('scene3d', currentModel);
   initDownloads('downloads');
 })();

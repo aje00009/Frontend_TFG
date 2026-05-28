@@ -1,6 +1,6 @@
-import { getPaths, getCurvesPath, getDiffPath } from '../utils/config.js';
+import { loadSpeciesIndex, getPaths, getCurvesPath, getDiffPath } from '../utils/config.js';
 
-export function initDownloads(containerId) {
+export async function initDownloads(containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
@@ -15,6 +15,15 @@ export function initDownloads(containerId) {
 
   const grid = container.querySelector('#downloads-grid');
   const info = container.querySelector('#downloads-info');
+
+  let index;
+  try {
+    index = await loadSpeciesIndex();
+  } catch (err) {
+    console.error('[Downloads] Error cargando catálogo:', err);
+    info.classList.remove('hidden');
+    return;
+  }
 
   function makeCard(label, path) {
     const filename = path.split('/').pop();
@@ -34,9 +43,13 @@ export function initDownloads(containerId) {
     return a;
   }
 
-  function render(scenario) {
+  function render(model) {
     grid.innerHTML = '';
-    const paths = getPaths(scenario);
+    if (!model) {
+      info.classList.remove('hidden');
+      return;
+    }
+    const paths = getPaths(index, model.species.id, model.algorithm.id, model.scenario);
     const items = [];
 
     if (paths.tif) items.push(makeCard('GeoTIFF', paths.tif));
@@ -45,9 +58,18 @@ export function initDownloads(containerId) {
     if (paths.metrics) items.push(makeCard('Métricas JSON', paths.metrics));
     if (paths.config) items.push(makeCard('Config JSON', paths.config));
 
-    // Archivos comunes (no dependen de escenario)
-    items.push(makeCard('Curvas CSV', getCurvesPath()));
-    items.push(makeCard('Diferencias PNG', getDiffPath()));
+    items.push(makeCard('Curvas CSV', getCurvesPath(index, model.species.id, model.algorithm.id)));
+
+    const sspId = model.scenario.id === 'actual'
+      ? (model.algorithm.ssps?.[0]?.id || null)
+      : model.scenario.id.split('_')[0];
+    const periodId = model.scenario.id === 'actual'
+      ? (model.algorithm.periods?.[model.algorithm.periods.length - 1] || '2081_2100')
+      : model.scenario.id.split('_').slice(1).join('_');
+    if (sspId && periodId) {
+      const diffPath = getDiffPath(index, model.species.id, model.algorithm.id, sspId, periodId);
+      if (diffPath) items.push(makeCard('Diferencias PNG', diffPath));
+    }
 
     if (items.length === 0) {
       info.classList.remove('hidden');
@@ -57,5 +79,5 @@ export function initDownloads(containerId) {
     }
   }
 
-  window.addEventListener('scenario-changed', (e) => render(e.detail));
+  window.addEventListener('model-changed', (e) => render(e.detail));
 }

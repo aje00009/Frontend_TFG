@@ -1,5 +1,5 @@
 import { loadJson } from '../utils/dataLoader.js';
-import { getPaths } from '../utils/config.js';
+import { loadSpeciesIndex, getPaths, getScenarios } from '../utils/config.js';
 
 const METRIC_META = [
   { key: 'auc', label: 'AUC', max: 1 },
@@ -11,7 +11,7 @@ const METRIC_META = [
   { key: 'f1Score', label: 'F1', max: 1 },
 ];
 
-export function initDashboard(containerId) {
+export async function initDashboard(containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
@@ -25,10 +25,27 @@ export function initDashboard(containerId) {
 
   const grid = container.querySelector('#metrics-grid');
   const info = container.querySelector('#metrics-info');
+  let index;
+  try {
+    index = await loadSpeciesIndex();
+  } catch (err) {
+    console.error('[Dashboard] Error cargando catálogo:', err);
+    info.classList.remove('hidden');
+    return;
+  }
 
-  async function render() {
-    // Usar siempre el escenario 'actual' para métricas (fijas)
-    const paths = getPaths({ id: 'actual' });
+  async function render(model) {
+    grid.innerHTML = '';
+    if (!model) {
+      info.classList.remove('hidden');
+      return;
+    }
+    const actualScenario = getScenarios(index, model.species.id, model.algorithm.id, model.period.id).find(s => s.id === 'actual');
+    if (!actualScenario) {
+      info.classList.remove('hidden');
+      return;
+    }
+    const paths = getPaths(index, model.species.id, model.algorithm.id, actualScenario);
     if (!paths.metrics) {
       info.classList.remove('hidden');
       return;
@@ -64,5 +81,6 @@ export function initDashboard(containerId) {
     });
   }
 
-  render();
+  window.addEventListener('model-changed', (e) => render(e.detail));
+  render(null);
 }

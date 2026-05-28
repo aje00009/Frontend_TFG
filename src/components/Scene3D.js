@@ -2,12 +2,15 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { loadDEM, createTerrainGeometry, lonLatToMeters } from '../utils/terrainLoader.js';
 import { loadPointCloud, pointsToGeometry } from '../utils/pointCloudLoader.js';
-import { SCENARIOS, getPaths } from '../utils/config.js';
+import {
+  loadSpeciesIndex,
+  getPaths,
+  getPointCloudIndexUrl,
+} from '../utils/config.js';
 import { createHillshadeTexture } from '../utils/hillshade.js';
 import {
   loadImageToCanvas,
   samplePixel,
-  lonLatFromTerrainUV,
   pixelCoordsFromLonLat,
   formatCoords,
   formatElevation,
@@ -16,18 +19,39 @@ import {
   classifyGEUColor,
 } from '../utils/pickerUtils.js';
 
-export async function initScene3D(containerId, initialScenario) {
+export async function initScene3D(containerId, initialModel) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
-  // Cargar lista de nubes disponibles dinámicamente
-  let cloudOptions = [];
+  // Cargar catálogo de especies
+  let index;
   try {
-    const res = await fetch('/data/pointcloud/index.json');
-    if (res.ok) cloudOptions = await res.json();
-  } catch (e) {
-    console.warn('[Scene3D] No se pudo cargar index.json de pointclouds');
+    index = await loadSpeciesIndex();
+  } catch (err) {
+    console.error('[Scene3D] Error cargando catálogo:', err);
   }
+
+  // Cargar lista de nubes disponibles dinámicamente según especie+algoritmo
+  async function loadCloudOptions(speciesId, algoId) {
+    if (!speciesId || !algoId) return [];
+    try {
+      const url = getPointCloudIndexUrl(speciesId, algoId);
+      const res = await fetch(url);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('[Scene3D] No se pudo cargar index.json de pointclouds:', e);
+    }
+    return [];
+  }
+
+  // Guardar referencia al modelo actual
+  let currentModel = initialModel;
+  let currentSpeciesId = initialModel?.species?.id;
+  let currentAlgoId = initialModel?.algorithm?.id;
+
+  let cloudOptions = currentModel
+    ? await loadCloudOptions(currentSpeciesId, currentAlgoId)
+    : [];
   if (!cloudOptions.length) {
     cloudOptions = [{ label: 'Sin nubes disponibles', url: '' }];
   }
@@ -188,9 +212,9 @@ export async function initScene3D(containerId, initialScenario) {
   }
 
   // === CARGAR HEATMAP ===
-  async function loadHeatmap(scenario) {
-    if (!terrainMesh || !currentBBox) return;
-    const paths = getPaths(scenario);
+  async function loadHeatmap(model) {
+    if (!terrainMesh || !currentBBox || !index) return;
+    const paths = getPaths(index, model.species.id, model.algorithm.id, model.scenario);
     if (!paths.png) return;
 
     if (heatmapMesh) {
@@ -376,8 +400,8 @@ export async function initScene3D(containerId, initialScenario) {
   // === INICIALIZACIÓN ===
   const terrainInfo = await loadTerrain();
   if (terrainInfo) {
-    if (initialScenario) await loadHeatmap(initialScenario);
-    await loadPointCloudScene();
+    if (initialModel) await loadHeatmap(initialModel);
+    if (cloudOptions.some(o => o.url)) await loadPointCloudScene();
   }
 
   // === APLICAR TEXTURA AL TERRENO ===
@@ -478,7 +502,7 @@ export async function initScene3D(containerId, initialScenario) {
   }
 
   async function handleSceneClick(event) {
-    if (!terrainMesh || !currentBBox) return;
+    if (!terrainMesh || !currentBBox || !currentScenarioPng) return;
     const rect = renderer.domElement.getBoundingClientRect();
     const mouse = new THREE.Vector2(
       ((event.clientX - rect.left) / rect.width) * 2 - 1,
@@ -486,28 +510,26 @@ export async function initScene3D(containerId, initialScenario) {
     );
     const raycaster = new THREE.Raycaster();
     raycaster.setFromCamera(mouse, camera);
-    const targets = [terrainMesh];
-    if (heatmapMesh) targets.push(heatmapMesh);
-    const intersects = raycaster.intersectObjects(targets);
+    // Siempre intersectamos con el terreno base; el overlay (si existe) es transparente
+    // para el picking y no afecta la coordenada geográfica.
+    const intersects = raycaster.intersectObject(terrainMesh);
     if (intersects.length === 0) {
       if (scene3dPicker) scene3dPicker.classList.add('hidden');
       return;
     }
 
     const hit = intersects[0];
-    const uv = hit.uv.clone();
-    // El heatmapMesh tiene los UVs volteados verticalmente (loadHeatmap).
-    // Si intersectamos con él, debemos deshacer el flip para obtener lon/lat correctas.
-    if (hit.object === heatmapMesh) {
-      uv.y = 1 - uv.y;
-    }
+    const uv = hit.uv;
     if (!uv || uv.x < 0 || uv.x > 1 || uv.y < 0 || uv.y > 1) {
       console.warn('[Scene3D] UV fuera de rango:', uv);
       if (scene3dPicker) scene3dPicker.classList.add('hidden');
       return;
     }
 
-    const { lon, lat } = lonLatFromTerrainUV(uv, currentBBox);
+    // NOTA: Se invierte uv.y en latitud porque el DEM se carga con row=0=norte
+    // pero PlaneGeometry uv.y=0 corresponde a la fila inferior (sur).
+    const lon = currentBBox.west + uv.x * (currentBBox.east - currentBBox.west);
+    const lat = currentBBox.north - uv.y * (currentBBox.north - currentBBox.south);
     let elev = getElevationAtUV(uv);
     if (elev === null) {
       elev = getElevationFromPoint(hit.point);
@@ -519,20 +541,18 @@ export async function initScene3D(containerId, initialScenario) {
     const colorBox = container.querySelector('#scene3d-picker-color');
 
     const bboxForPng = currentHeatmapBBox || currentBBox;
-    if (currentScenarioPng) {
-      if (!currentImgData || currentImgData.url !== currentScenarioPng) {
-        currentImgData = await loadImageToCanvas(currentScenarioPng);
-        if (currentImgData) currentImgData.url = currentScenarioPng;
-      }
-      if (currentImgData) {
-        const { px, py } = pixelCoordsFromLonLat(lon, lat, bboxForPng, currentImgData.width, currentImgData.height);
-        const col = samplePixel(currentImgData.ctx, px, py, currentImgData.width, currentImgData.height);
-        if (col) {
-          hex = rgbToHex(col.r, col.g, col.b);
-          if (colorBox) colorBox.style.backgroundColor = hex;
-          const cat = classifyGEUColor(col.r, col.g, col.b);
-          probLabel = `${cat.label} (${cat.range})`;
-        }
+    if (!currentImgData || currentImgData.url !== currentScenarioPng) {
+      currentImgData = await loadImageToCanvas(currentScenarioPng);
+      if (currentImgData) currentImgData.url = currentScenarioPng;
+    }
+    if (currentImgData) {
+      const { px, py } = pixelCoordsFromLonLat(lon, lat, bboxForPng, currentImgData.width, currentImgData.height);
+      const col = samplePixel(currentImgData.ctx, px, py, currentImgData.width, currentImgData.height);
+      if (col) {
+        hex = rgbToHex(col.r, col.g, col.b);
+        if (colorBox) colorBox.style.backgroundColor = hex;
+        const cat = classifyGEUColor(col.r, col.g, col.b);
+        probLabel = `${cat.label} (${cat.range})`;
       }
     }
 
@@ -554,8 +574,9 @@ export async function initScene3D(containerId, initialScenario) {
 
   renderer.domElement.addEventListener('click', handleSceneClick);
 
-  async function updateHeatmapBBoxFromScenario(scenario) {
-    const paths = getPaths(scenario);
+  async function updateHeatmapBBoxFromScenario(model) {
+    if (!index) return;
+    const paths = getPaths(index, model.species.id, model.algorithm.id, model.scenario);
     if (!paths.geojson) return;
     try {
       const geojson = await fetch(paths.geojson).then(r => r.ok ? r.json() : null);
@@ -580,27 +601,55 @@ export async function initScene3D(containerId, initialScenario) {
     }
   }
 
-  window.addEventListener('scenario-changed', async (e) => {
-    if (e.detail) {
-      currentScenarioPng = e.detail.paths?.png || null;
-      await updateHeatmapBBoxFromScenario(e.detail);
-      if (currentScenarioPng) {
-        currentImgData = await loadImageToCanvas(currentScenarioPng);
-        if (currentImgData) currentImgData.url = currentScenarioPng;
-        await updateLegend();
-      }
-      if (currentTextureType === 'heatmap') {
-        await loadHeatmap(e.detail);
-      } else {
-        if (heatmapMesh) {
-          worldGroup.remove(heatmapMesh);
-          heatmapMesh.geometry.dispose();
-          heatmapMesh.material.map?.dispose();
-          heatmapMesh.material.dispose();
-          heatmapMesh = null;
+  window.addEventListener('model-changed', async (e) => {
+    const model = e.detail;
+    if (!model) return;
+    currentModel = model;
+
+    // Recargar nubes solo si cambió especie o algoritmo
+    const speciesChanged = model.species?.id !== currentSpeciesId;
+    const algoChanged = model.algorithm?.id !== currentAlgoId;
+    if ((speciesChanged || algoChanged) && model.species && model.algorithm) {
+      currentSpeciesId = model.species.id;
+      currentAlgoId = model.algorithm.id;
+      const newOptions = await loadCloudOptions(currentSpeciesId, currentAlgoId);
+      if (newOptions.length) {
+        cloudOptions = newOptions;
+        // Actualizar selector de nubes
+        if (cloudSelect) {
+          cloudSelect.innerHTML = cloudOptions.map(o => `<option value="${o.url}">${o.label}</option>`).join('');
+          currentCloudUrl = cloudOptions[0]?.url || '';
+          cloudSelect.value = currentCloudUrl;
         }
-        await applyTerrainTexture(currentTextureType, e.detail);
+        // Eliminar nube anterior y cargar nueva
+        if (pointCloudMesh) {
+          worldGroup.remove(pointCloudMesh);
+          pointCloudMesh.geometry.dispose();
+          pointCloudMesh.material.dispose();
+          pointCloudMesh = null;
+        }
+        await loadPointCloudScene();
       }
+    }
+
+    currentScenarioPng = model.paths?.png || null;
+    await updateHeatmapBBoxFromScenario(model);
+    if (currentScenarioPng) {
+      currentImgData = await loadImageToCanvas(currentScenarioPng);
+      if (currentImgData) currentImgData.url = currentScenarioPng;
+      await updateLegend();
+    }
+    if (currentTextureType === 'heatmap') {
+      await loadHeatmap(model);
+    } else {
+      if (heatmapMesh) {
+        worldGroup.remove(heatmapMesh);
+        heatmapMesh.geometry.dispose();
+        heatmapMesh.material.map?.dispose();
+        heatmapMesh.material.dispose();
+        heatmapMesh = null;
+      }
+      await applyTerrainTexture(currentTextureType, model);
     }
   });
 
@@ -616,12 +665,10 @@ export async function initScene3D(containerId, initialScenario) {
 
       // Cambiar heatmap al escenario correspondiente
       if (selectedOption?.scenarioId) {
-        const scenario = SCENARIOS.find(s => s.id === selectedOption.scenarioId);
-        if (scenario) {
-          window.dispatchEvent(new CustomEvent('scenario-changed', {
-            detail: { ...scenario, paths: getPaths(scenario) }
-          }));
-        }
+        // Emitir un evento interno para sincronizar el heatmap con la nube seleccionada
+        // Nota: el evento real model-changed lo maneja ScenarioSelector.js
+        // Aquí solo sincronizamos si el modelo actual coincide
+        console.log('[Scene3D] Cambio de nube a escenario:', selectedOption.scenarioId);
       }
 
       if (pointCloudMesh) {
@@ -643,11 +690,7 @@ export async function initScene3D(containerId, initialScenario) {
   if (textureSelect) {
     textureSelect.addEventListener('change', async (e) => {
       const type = e.target.value;
-      const scenario = SCENARIOS.find(s => {
-        const opt = cloudOptions.find(o => o.url === currentCloudUrl);
-        return s.id === opt?.scenarioId;
-      });
-      await applyTerrainTexture(type, scenario);
+      await applyTerrainTexture(type, currentModel);
     });
   }
 

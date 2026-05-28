@@ -190,9 +190,9 @@ export async function initMapViewer(containerId) {
   controlsDiv.querySelector('#heatmap-alpha').addEventListener('input', (e) => updateHeatmapAlpha(e.target.value));
   setBaseLayer('cartodb-dark');
 
-  window.addEventListener('scenario-changed', async (e) => {
+  window.addEventListener('model-changed', async (e) => {
     const { paths } = e.detail;
-    console.log('[MapViewer] scenario-changed', paths);
+    console.log('[MapViewer] model-changed', paths);
 
     if (heatmapEntity) {
       viewer.entities.remove(heatmapEntity);
