@@ -3,6 +3,18 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { loadDEM, createTerrainGeometry, lonLatToMeters } from '../utils/terrainLoader.js';
 import { loadPointCloud, pointsToGeometry } from '../utils/pointCloudLoader.js';
 import { SCENARIOS, getPaths } from '../utils/config.js';
+import { createHillshadeTexture } from '../utils/hillshade.js';
+import {
+  loadImageToCanvas,
+  samplePixel,
+  lonLatFromTerrainUV,
+  pixelCoordsFromLonLat,
+  formatCoords,
+  formatElevation,
+  rgbToHex,
+  createGEULegendCanvas,
+  classifyGEUColor,
+} from '../utils/pickerUtils.js';
 
 export async function initScene3D(containerId, initialScenario) {
   const container = document.getElementById(containerId);
@@ -25,11 +37,44 @@ export async function initScene3D(containerId, initialScenario) {
       <div id="terrain-info" class="absolute top-3 left-3 z-10 bg-black/60 backdrop-blur text-white text-xs px-3 py-2 rounded-lg border border-white/10 pointer-events-none">
         Cargando...
       </div>
-      <div class="absolute top-3 right-3 z-10 bg-black/60 backdrop-blur px-3 py-2 rounded-lg border border-white/10 flex items-center gap-2">
-        <label class="text-xs text-gray-400">Nube:</label>
-        <select id="cloud-select" class="geu-select text-xs py-1 min-w-[220px]">
-          ${cloudOptions.map(o => `<option value="${o.url}">${o.label}</option>`).join('')}
-        </select>
+      <div class="absolute top-3 right-3 z-10 flex flex-col gap-2">
+        <div class="bg-black/60 backdrop-blur px-3 py-2 rounded-lg border border-white/10 flex items-center gap-2">
+          <label class="text-xs text-gray-400">Nube:</label>
+          <select id="cloud-select" class="geu-select text-xs py-1 min-w-[220px]">
+            ${cloudOptions.map(o => `<option value="${o.url}">${o.label}</option>`).join('')}
+          </select>
+        </div>
+        <div class="bg-black/60 backdrop-blur px-3 py-2 rounded-lg border border-white/10 flex items-center gap-2">
+          <label class="text-xs text-gray-400">Textura:</label>
+          <select id="texture-select" class="geu-select text-xs py-1 min-w-[160px]">
+            <option value="heatmap">Heatmap modelo</option>
+            <option value="satellite">ESRI Satellite</option>
+            <option value="hillshade">Hillshade DEM</option>
+            <option value="solid">Sólido (gris)</option>
+          </select>
+        </div>
+      </div>
+      <!-- Leyenda del heatmap -->
+      <div id="scene3d-legend" class="absolute bottom-6 left-6 z-10 bg-black/60 backdrop-blur px-3 py-2 rounded-lg border border-white/10 pointer-events-none hidden">
+        <div class="text-[10px] text-gray-400 font-medium text-center mb-1">Modelo</div>
+        <div class="flex gap-1">
+          <canvas id="scene3d-legend-canvas" width="20" height="150" class="rounded border border-white/10"></canvas>
+          <div class="flex flex-col justify-between text-[10px] text-gray-300 font-mono py-0.5">
+            <span>1.0</span>
+            <span>0.5</span>
+            <span>0.0</span>
+          </div>
+        </div>
+      </div>
+      <!-- Tooltip de picking -->
+      <div id="scene3d-picker-card" class="absolute bottom-6 left-6 z-10 bg-black/70 backdrop-blur px-3 py-2 rounded-lg border border-white/10 text-white text-xs hidden max-w-[220px]" style="transform: translateX(100px);">
+        <div class="font-semibold text-teal-400 mb-1">Punto seleccionado</div>
+        <div id="scene3d-picker-coords" class="font-mono text-[11px] text-gray-300 leading-tight"></div>
+        <div id="scene3d-picker-elev" class="font-mono text-[11px] text-gray-300 mt-1"></div>
+        <div class="flex items-center gap-2 mt-1">
+          <div id="scene3d-picker-color" class="w-4 h-4 rounded border border-white/20 shrink-0"></div>
+          <span id="scene3d-picker-hex" class="font-mono text-[11px] text-gray-300"></span>
+        </div>
       </div>
     </div>
   `;
@@ -74,7 +119,17 @@ export async function initScene3D(containerId, initialScenario) {
   let refLat = 42.5;
   let terrainMinElevation = 0;
   let terrainMaxElevation = 0;
+  let demElevations = null;
+  let demWidth = 0;
+  let demHeight = 0;
   let currentCloudUrl = cloudOptions[0]?.url || '';
+  let currentTextureType = 'heatmap';
+  let currentScenarioPng = null;
+  let currentImgData = null;
+  let currentHeatmapBBox = null;
+
+  const scene3dLegend = container.querySelector('#scene3d-legend');
+  const scene3dPicker = container.querySelector('#scene3d-picker-card');
 
   // === CARGAR TERRENO ===
   async function loadTerrain() {
@@ -103,6 +158,9 @@ export async function initScene3D(containerId, initialScenario) {
 
       terrainMinElevation = minElevation;
       terrainMaxElevation = maxElevation;
+      demElevations = demData.elevations;
+      demWidth = demData.width;
+      demHeight = demData.height;
       const range = maxElevation - minElevation;
       infoEl.innerHTML = `
         <div class="font-semibold text-teal-400 mb-1">Terreno DEM cargado</div>
@@ -322,8 +380,228 @@ export async function initScene3D(containerId, initialScenario) {
     await loadPointCloudScene();
   }
 
+  // === APLICAR TEXTURA AL TERRENO ===
+  async function applyTerrainTexture(type, scenario) {
+    if (!terrainMesh || !demElevations) return;
+    currentTextureType = type;
+
+    // Siempre quitar overlay flotante si no estamos en modo heatmap
+    if (type !== 'heatmap' && heatmapMesh) {
+      worldGroup.remove(heatmapMesh);
+      heatmapMesh.geometry.dispose();
+      heatmapMesh.material.map?.dispose();
+      heatmapMesh.material.dispose();
+      heatmapMesh = null;
+    }
+
+    if (type === 'solid') {
+      terrainMesh.material.map = null;
+      terrainMesh.material.color.setHex(0x888888);
+      terrainMesh.material.needsUpdate = true;
+      return;
+    }
+
+    if (type === 'hillshade') {
+      const canvas = createHillshadeTexture(demElevations, demWidth, demHeight, 2.5);
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      terrainMesh.material.map = tex;
+      terrainMesh.material.color.setHex(0xffffff);
+      terrainMesh.material.needsUpdate = true;
+      return;
+    }
+
+    if (type === 'satellite') {
+      const bbox = currentBBox;
+      const w = Math.min(2048, Math.round(demWidth * 2));
+      const h = Math.min(2048, Math.round(demHeight * 2));
+      const url = `https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${bbox.west},${bbox.south},${bbox.east},${bbox.north}&bboxSR=4326&imageSR=4326&size=${w},${h}&format=png&f=image`;
+      const tex = await new Promise((resolve) => {
+        new THREE.TextureLoader().load(url, (t) => {
+          t.colorSpace = THREE.SRGBColorSpace;
+          resolve(t);
+        }, undefined, () => resolve(null));
+      });
+      if (tex) {
+        terrainMesh.material.map = tex;
+        terrainMesh.material.color.setHex(0xffffff);
+        terrainMesh.material.needsUpdate = true;
+      } else {
+        console.warn('[Scene3D] No se pudo cargar satellite');
+      }
+      return;
+    }
+
+    // heatmap: usar overlay flotante (loadHeatmap) en lugar de textura base
+    if (scenario) {
+      terrainMesh.material.map = null;
+      terrainMesh.material.color.setHex(0x888888);
+      terrainMesh.material.needsUpdate = true;
+      await loadHeatmap(scenario);
+    }
+  }
+
+  async function updateLegend() {
+    const canvas = createGEULegendCanvas();
+    const legendCanvas = container.querySelector('#scene3d-legend-canvas');
+    if (canvas && legendCanvas && scene3dLegend) {
+      const ctx = legendCanvas.getContext('2d');
+      ctx.clearRect(0, 0, legendCanvas.width, legendCanvas.height);
+      ctx.drawImage(canvas, 0, 0, legendCanvas.width, legendCanvas.height);
+      scene3dLegend.classList.remove('hidden');
+    } else if (scene3dLegend) {
+      scene3dLegend.classList.add('hidden');
+    }
+  }
+
+  function getElevationAtUV(uv) {
+    if (!demElevations || !demWidth || !demHeight) return null;
+    if (!uv || uv.x < 0 || uv.x > 1 || uv.y < 0 || uv.y > 1) return null;
+    const col = Math.floor(uv.x * (demWidth - 1));
+    const row = Math.floor(uv.y * (demHeight - 1));
+    const idx = row * demWidth + col;
+    const v = demElevations[idx];
+    if (isNaN(v) || v <= -9999) return null;
+    return v;
+  }
+
+  function getElevationFromPoint(point) {
+    // Fallback: deshacer la exageración aplicada en createTerrainGeometry
+    if (!terrainMesh || terrainMinElevation === undefined) return null;
+    // La geometría local tiene z = (elev - minEl) * exaggeration
+    // El mesh está rotado -90° en X, por lo que la coordenada Y del mundo
+    // corresponde a la Z local (elevación escalada).
+    const localZ = point.y;
+    const exaggeration = 1.8;
+    const elev = localZ / exaggeration + terrainMinElevation;
+    return isNaN(elev) ? null : elev;
+  }
+
+  async function handleSceneClick(event) {
+    if (!terrainMesh || !currentBBox) return;
+    const rect = renderer.domElement.getBoundingClientRect();
+    const mouse = new THREE.Vector2(
+      ((event.clientX - rect.left) / rect.width) * 2 - 1,
+      -((event.clientY - rect.top) / rect.height) * 2 + 1
+    );
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(mouse, camera);
+    const targets = [terrainMesh];
+    if (heatmapMesh) targets.push(heatmapMesh);
+    const intersects = raycaster.intersectObjects(targets);
+    if (intersects.length === 0) {
+      if (scene3dPicker) scene3dPicker.classList.add('hidden');
+      return;
+    }
+
+    const hit = intersects[0];
+    const uv = hit.uv.clone();
+    // El heatmapMesh tiene los UVs volteados verticalmente (loadHeatmap).
+    // Si intersectamos con él, debemos deshacer el flip para obtener lon/lat correctas.
+    if (hit.object === heatmapMesh) {
+      uv.y = 1 - uv.y;
+    }
+    if (!uv || uv.x < 0 || uv.x > 1 || uv.y < 0 || uv.y > 1) {
+      console.warn('[Scene3D] UV fuera de rango:', uv);
+      if (scene3dPicker) scene3dPicker.classList.add('hidden');
+      return;
+    }
+
+    const { lon, lat } = lonLatFromTerrainUV(uv, currentBBox);
+    let elev = getElevationAtUV(uv);
+    if (elev === null) {
+      elev = getElevationFromPoint(hit.point);
+    }
+    const coords = formatCoords(lat, lon);
+
+    let hex = '—';
+    let probLabel = '';
+    const colorBox = container.querySelector('#scene3d-picker-color');
+
+    const bboxForPng = currentHeatmapBBox || currentBBox;
+    if (currentScenarioPng) {
+      if (!currentImgData || currentImgData.url !== currentScenarioPng) {
+        currentImgData = await loadImageToCanvas(currentScenarioPng);
+        if (currentImgData) currentImgData.url = currentScenarioPng;
+      }
+      if (currentImgData) {
+        const { px, py } = pixelCoordsFromLonLat(lon, lat, bboxForPng, currentImgData.width, currentImgData.height);
+        const col = samplePixel(currentImgData.ctx, px, py, currentImgData.width, currentImgData.height);
+        if (col) {
+          hex = rgbToHex(col.r, col.g, col.b);
+          if (colorBox) colorBox.style.backgroundColor = hex;
+          const cat = classifyGEUColor(col.r, col.g, col.b);
+          probLabel = `${cat.label} (${cat.range})`;
+        }
+      }
+    }
+
+    container.querySelector('#scene3d-picker-coords').textContent = `${coords.decimal}\n${coords.dms}`;
+    container.querySelector('#scene3d-picker-elev').textContent = `Elev: ${formatElevation(elev)}`;
+    container.querySelector('#scene3d-picker-hex').textContent = hex + (probLabel ? `\n${probLabel}` : '');
+    if (hex === '—' && colorBox) colorBox.style.backgroundColor = 'transparent';
+    if (scene3dPicker) {
+      if (scene3dLegend && !scene3dLegend.classList.contains('hidden')) {
+        scene3dPicker.style.left = '110px';
+        scene3dPicker.style.transform = 'none';
+      } else {
+        scene3dPicker.style.left = '24px';
+        scene3dPicker.style.transform = 'none';
+      }
+      scene3dPicker.classList.remove('hidden');
+    }
+  }
+
+  renderer.domElement.addEventListener('click', handleSceneClick);
+
+  async function updateHeatmapBBoxFromScenario(scenario) {
+    const paths = getPaths(scenario);
+    if (!paths.geojson) return;
+    try {
+      const geojson = await fetch(paths.geojson).then(r => r.ok ? r.json() : null);
+      if (geojson && geojson.features?.length > 0) {
+        const coords = geojson.features
+          .filter(f => f.geometry?.type === 'Point')
+          .map(f => f.geometry.coordinates);
+        if (coords.length > 0) {
+          const lons = coords.map(c => c[0]);
+          const lats = coords.map(c => c[1]);
+          currentHeatmapBBox = {
+            west: Math.min(...lons),
+            south: Math.min(...lats),
+            east: Math.max(...lons),
+            north: Math.max(...lats),
+          };
+        }
+      }
+    } catch (err) {
+      console.warn('[Scene3D] No se pudo calcular BBox del heatmap:', err);
+      currentHeatmapBBox = null;
+    }
+  }
+
   window.addEventListener('scenario-changed', async (e) => {
-    if (e.detail) await loadHeatmap(e.detail);
+    if (e.detail) {
+      currentScenarioPng = e.detail.paths?.png || null;
+      await updateHeatmapBBoxFromScenario(e.detail);
+      if (currentScenarioPng) {
+        currentImgData = await loadImageToCanvas(currentScenarioPng);
+        if (currentImgData) currentImgData.url = currentScenarioPng;
+        await updateLegend();
+      }
+      if (currentTextureType === 'heatmap') {
+        await loadHeatmap(e.detail);
+      } else {
+        if (heatmapMesh) {
+          worldGroup.remove(heatmapMesh);
+          heatmapMesh.geometry.dispose();
+          heatmapMesh.material.map?.dispose();
+          heatmapMesh.material.dispose();
+          heatmapMesh = null;
+        }
+        await applyTerrainTexture(currentTextureType, e.detail);
+      }
+    }
   });
 
   if (cloudSelect) {
@@ -358,6 +636,19 @@ export async function initScene3D(containerId, initialScenario) {
     });
   } else {
     console.warn('[Scene3D] No se encontró el selector de nube');
+  }
+
+  // Selector de textura del terreno
+  const textureSelect = container.querySelector('#texture-select');
+  if (textureSelect) {
+    textureSelect.addEventListener('change', async (e) => {
+      const type = e.target.value;
+      const scenario = SCENARIOS.find(s => {
+        const opt = cloudOptions.find(o => o.url === currentCloudUrl);
+        return s.id === opt?.scenarioId;
+      });
+      await applyTerrainTexture(type, scenario);
+    });
   }
 
   function animate() {

@@ -1,5 +1,15 @@
 import * as Cesium from 'cesium';
 import { processHeatmapAdvanced } from '../utils/processHeatmap.js';
+import {
+  loadImageToCanvas,
+  samplePixel,
+  pixelCoordsFromLonLat,
+  formatCoords,
+  formatElevation,
+  rgbToHex,
+  createGEULegendCanvas,
+  classifyGEUColor,
+} from '../utils/pickerUtils.js';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 
 const BASE_LAYERS = {
@@ -47,6 +57,98 @@ export async function initMapViewer(containerId) {
 
   let heatmapEntity = null;
   let currentPngUrl = null;
+  let currentHeatmapBBox = null;
+  let currentImgData = null;
+
+  // === LEYENDA ===
+  const legendDiv = document.createElement('div');
+  legendDiv.className = 'absolute left-6 z-10 bg-black/60 backdrop-blur px-3 py-2 rounded-lg border border-white/10 pointer-events-none flex flex-col items-center gap-1';
+  legendDiv.style.bottom = '200px';
+  legendDiv.innerHTML = `
+    <div class="text-[10px] text-gray-400 font-medium">Modelo</div>
+    <div class="flex gap-1">
+      <canvas id="map-legend-canvas" width="20" height="150" class="rounded border border-white/10"></canvas>
+      <div class="flex flex-col justify-between text-[10px] text-gray-300 font-mono py-0.5">
+        <span>1.0</span>
+        <span>0.5</span>
+        <span>0.0</span>
+      </div>
+    </div>
+  `;
+  container.appendChild(legendDiv);
+
+  // === TOOLTIP DE PICKING ===
+  const pickerDiv = document.createElement('div');
+  pickerDiv.id = 'map-picker-card';
+  pickerDiv.className = 'absolute bottom-6 right-6 z-10 bg-black/70 backdrop-blur px-3 py-2 rounded-lg border border-white/10 text-white text-xs hidden max-w-[220px]';
+  pickerDiv.innerHTML = `
+    <div class="font-semibold text-teal-400 mb-1">Punto seleccionado</div>
+    <div id="map-picker-coords" class="font-mono text-[11px] text-gray-300 leading-tight"></div>
+    <div id="map-picker-elev" class="font-mono text-[11px] text-gray-300 mt-1"></div>
+    <div class="flex items-center gap-2 mt-1">
+      <div id="map-picker-color" class="w-4 h-4 rounded border border-white/20 shrink-0"></div>
+      <span id="map-picker-hex" class="font-mono text-[11px] text-gray-300"></span>
+    </div>
+  `;
+  container.appendChild(pickerDiv);
+
+  async function updateLegend() {
+    const canvas = createGEULegendCanvas();
+    const legendCanvas = document.getElementById('map-legend-canvas');
+    if (canvas && legendCanvas) {
+      const ctx = legendCanvas.getContext('2d');
+      ctx.clearRect(0, 0, legendCanvas.width, legendCanvas.height);
+      ctx.drawImage(canvas, 0, 0, legendCanvas.width, legendCanvas.height);
+      legendDiv.classList.remove('hidden');
+    } else {
+      legendDiv.classList.add('hidden');
+    }
+  }
+
+  async function handleMapClick(click) {
+    const ray = viewer.camera.getPickRay(click.position);
+    const cartesian = viewer.scene.globe.pick(ray, viewer.scene);
+    if (!cartesian) {
+      pickerDiv.classList.add('hidden');
+      return;
+    }
+
+    const carto = Cesium.Cartographic.fromCartesian(cartesian);
+    const lat = Cesium.Math.toDegrees(carto.latitude);
+    const lon = Cesium.Math.toDegrees(carto.longitude);
+    const elev = viewer.scene.globe.getHeight(carto) ?? carto.height;
+
+    const coords = formatCoords(lat, lon);
+
+    let hex = '—';
+    let probLabel = '';
+    const colorBox = document.getElementById('map-picker-color');
+
+    if (currentPngUrl && currentHeatmapBBox) {
+      if (!currentImgData || currentImgData.url !== currentPngUrl) {
+        currentImgData = await loadImageToCanvas(currentPngUrl);
+        if (currentImgData) currentImgData.url = currentPngUrl;
+      }
+      if (currentImgData) {
+        const { px, py } = pixelCoordsFromLonLat(lon, lat, currentHeatmapBBox, currentImgData.width, currentImgData.height);
+        const col = samplePixel(currentImgData.ctx, px, py, currentImgData.width, currentImgData.height);
+        if (col) {
+          hex = rgbToHex(col.r, col.g, col.b);
+          if (colorBox) colorBox.style.backgroundColor = hex;
+          const cat = classifyGEUColor(col.r, col.g, col.b);
+          probLabel = `${cat.label} (${cat.range})`;
+        }
+      }
+    }
+
+    document.getElementById('map-picker-coords').textContent = `${coords.decimal}\n${coords.dms}`;
+    document.getElementById('map-picker-elev').textContent = `Elev: ${formatElevation(elev)}`;
+    document.getElementById('map-picker-hex').textContent = hex + (probLabel ? `\n${probLabel}` : '');
+    if (hex === '—' && colorBox) colorBox.style.backgroundColor = 'transparent';
+    pickerDiv.classList.remove('hidden');
+  }
+
+  viewer.screenSpaceEventHandler.setInputAction(handleMapClick, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
   // Controles superpuestos
   const controlsDiv = document.createElement('div');
@@ -128,6 +230,12 @@ export async function initMapViewer(containerId) {
 
       const alpha = parseFloat(document.getElementById('heatmap-alpha').value);
       currentPngUrl = paths.png;
+      currentHeatmapBBox = {
+        west: Cesium.Math.toDegrees(rectangle.west),
+        south: Cesium.Math.toDegrees(rectangle.south),
+        east: Cesium.Math.toDegrees(rectangle.east),
+        north: Cesium.Math.toDegrees(rectangle.north),
+      };
 
       heatmapEntity = viewer.entities.add({
         rectangle: {
@@ -137,6 +245,11 @@ export async function initMapViewer(containerId) {
           clampToGround: true,
         }
       });
+
+      // Precargar imagen para picking y regenerar leyenda
+      currentImgData = await loadImageToCanvas(currentPngUrl);
+      if (currentImgData) currentImgData.url = currentPngUrl;
+      await updateLegend();
 
       console.log('[MapViewer] Heatmap entity creado:', heatmapEntity);
     } catch (err) {
