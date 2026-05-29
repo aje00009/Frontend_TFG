@@ -1,0 +1,61 @@
+{
+  "species": "Pinus uncinata Ramond ex DC.",
+  "algorithm": "Random Forest",
+  "threshold": 0.5,
+  "unit": "km2",
+  "current": {
+    "scenario": "Actual",
+    "occupiedAreaKm2": 1987.4094,
+    "continuousAreaKm2": 2218.1991
+  },
+  "futures": [
+    {
+      "scenario": "SSP1-2.6 (Sostenibilidad)",
+      "period": "2081-2100",
+      "occupiedAreaKm2": 1120.3323,
+      "occupiedAreaChangePct": -43.63,
+      "continuousAreaKm2": 1316.8804,
+      "continuousAreaChangePct": -40.63,
+      "habitatLossKm2": 946.8506,
+      "habitatGainKm2": 45.5320,
+      "habitatStableKm2": 1271.3484,
+      "netChangePct": -40.63
+    },
+    {
+      "scenario": "SSP2-4.5 (Intermedio)",
+      "period": "2081-2100",
+      "occupiedAreaKm2": 0.0000,
+      "occupiedAreaChangePct": -100.00,
+      "continuousAreaKm2": 867.0011,
+      "continuousAreaChangePct": -60.91,
+      "habitatLossKm2": 1435.0580,
+      "habitatGainKm2": 83.8600,
+      "habitatStableKm2": 783.1411,
+      "netChangePct": -60.91
+    },
+    {
+      "scenario": "SSP3-7.0 (Rivalidad regional)",
+      "period": "2081-2100",
+      "occupiedAreaKm2": 0.0000,
+      "occupiedAreaChangePct": -100.00,
+      "continuousAreaKm2": 1022.8640,
+      "continuousAreaChangePct": -53.89,
+      "habitatLossKm2": 1297.7532,
+      "habitatGainKm2": 102.4181,
+      "habitatStableKm2": 920.4459,
+      "netChangePct": -53.89
+    },
+    {
+      "scenario": "SSP5-8.5 (Combustibles fosiles)",
+      "period": "2081-2100",
+      "occupiedAreaKm2": 0.0000,
+      "occupiedAreaChangePct": -100.00,
+      "continuousAreaKm2": 1011.6693,
+      "continuousAreaChangePct": -54.39,
+      "habitatLossKm2": 1309.0779,
+      "habitatGainKm2": 102.5481,
+      "habitatStableKm2": 909.1211,
+      "netChangePct": -54.39
+    }
+  ]
+}

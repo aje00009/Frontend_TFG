@@ -77,10 +77,10 @@ export async function initMapViewer(containerId) {
   `;
   container.appendChild(legendDiv);
 
-  // === TOOLTIP DE PICKING ===
+  // === TOOLTIP DE PICKING (posición junto al click) ===
   const pickerDiv = document.createElement('div');
   pickerDiv.id = 'map-picker-card';
-  pickerDiv.className = 'absolute bottom-6 right-6 z-10 bg-black/70 backdrop-blur px-3 py-2 rounded-lg border border-white/10 text-white text-xs hidden max-w-[220px]';
+  pickerDiv.className = 'absolute z-10 bg-black/80 backdrop-blur px-3 py-2 rounded-lg border border-white/10 text-white text-xs hidden max-w-[220px] pointer-events-none';
   pickerDiv.innerHTML = `
     <div class="font-semibold text-teal-400 mb-1">Punto seleccionado</div>
     <div id="map-picker-coords" class="font-mono text-[11px] text-gray-300 leading-tight"></div>
@@ -91,6 +91,9 @@ export async function initMapViewer(containerId) {
     </div>
   `;
   container.appendChild(pickerDiv);
+
+  // Indicador visual del punto seleccionado
+  let pickerMarker = null;
 
   async function updateLegend() {
     const canvas = createGEULegendCanvas();
@@ -110,6 +113,7 @@ export async function initMapViewer(containerId) {
     const cartesian = viewer.scene.globe.pick(ray, viewer.scene);
     if (!cartesian) {
       pickerDiv.classList.add('hidden');
+      if (pickerMarker) { viewer.entities.remove(pickerMarker); pickerMarker = null; }
       return;
     }
 
@@ -117,6 +121,36 @@ export async function initMapViewer(containerId) {
     const lat = Cesium.Math.toDegrees(carto.latitude);
     const lon = Cesium.Math.toDegrees(carto.longitude);
     const elev = viewer.scene.globe.getHeight(carto) ?? carto.height;
+
+    // Solo permitir picking dentro del bbox del heatmap
+    if (currentHeatmapBBox) {
+      const inside = lon >= currentHeatmapBBox.west && lon <= currentHeatmapBBox.east &&
+                     lat >= currentHeatmapBBox.south && lat <= currentHeatmapBBox.north;
+      if (!inside) {
+        pickerDiv.classList.add('hidden');
+        if (pickerMarker) { viewer.entities.remove(pickerMarker); pickerMarker = null; }
+        return;
+      }
+    }
+
+    // Posicionar tooltip junto al click
+    const x = click.position.x;
+    const y = click.position.y;
+    const offset = 16;
+    pickerDiv.style.left = Math.min(x + offset, container.clientWidth - 240) + 'px';
+    pickerDiv.style.top = Math.min(y + offset, container.clientHeight - 160) + 'px';
+    pickerDiv.style.right = 'auto';
+    pickerDiv.style.bottom = 'auto';
+
+    // Actualizar o crear marcador
+    if (pickerMarker) {
+      pickerMarker.position = cartesian;
+    } else {
+      pickerMarker = viewer.entities.add({
+        position: cartesian,
+        point: { pixelSize: 10, color: Cesium.Color.fromCssColorString('#2dd4a0'), outlineColor: Cesium.Color.WHITE, outlineWidth: 2, heightReference: Cesium.HeightReference.CLAMP_TO_GROUND },
+      });
+    }
 
     const coords = formatCoords(lat, lon);
 
@@ -188,7 +222,7 @@ export async function initMapViewer(containerId) {
 
   controlsDiv.querySelector('#base-layer-select').addEventListener('change', (e) => setBaseLayer(e.target.value));
   controlsDiv.querySelector('#heatmap-alpha').addEventListener('input', (e) => updateHeatmapAlpha(e.target.value));
-  setBaseLayer('cartodb-dark');
+  setBaseLayer('esri-satellite');
 
   window.addEventListener('model-changed', async (e) => {
     const { paths } = e.detail;
@@ -258,4 +292,16 @@ export async function initMapViewer(containerId) {
   });
 
   viewer.camera.flyTo({ destination: Cesium.Rectangle.fromDegrees(-10, 35, 5, 45), duration: 0 });
+
+  function exportPNG() {
+    try {
+      viewer.render();
+      return viewer.canvas.toDataURL('image/png');
+    } catch (err) {
+      console.error('[MapViewer] Error exportando PNG:', err);
+      return null;
+    }
+  }
+
+  return { exportPNG };
 }

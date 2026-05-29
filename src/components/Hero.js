@@ -1,35 +1,50 @@
-export function initHero(speciesName) {
+export function initHero() {
   const container = document.getElementById('hero');
   if (!container) return;
 
-  const displayName = speciesName.replace(/_/g, ' ');
-
   container.innerHTML = `
-    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-geu-panel via-geu-bg to-black opacity-80"></div>
-    <div class="absolute inset-0" style="background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0); background-size: 40px 40px;"></div>
+    <!-- Fondo decorativo -->
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-terra-surface-light via-terra-bg to-black opacity-80"></div>
+    <div class="absolute inset-0" style="background-image: radial-gradient(circle at 1px 1px, rgba(45,212,160,0.06) 1px, transparent 0); background-size: 40px 40px;"></div>
     
-    <div class="relative z-10 text-center px-4">
-      <h1 class="text-5xl md:text-7xl font-bold mb-6 tracking-tight">
-        Distribución de <span class="italic text-geu-accent">${displayName}</span>
+    <div class="relative z-10 text-center px-4 max-w-4xl mx-auto">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-terra-accent/10 border border-terra-accent/20 text-terra-accent text-xs font-semibold tracking-wide uppercase mb-6 reveal">
+        <span class="w-1.5 h-1.5 rounded-full bg-terra-accent animate-pulse"></span>
+        Proyecto GEU
+      </div>
+      
+      <h1 class="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 tracking-tight reveal reveal-delay-1">
+        <span class="text-gradient">TerraPredict</span>
       </h1>
-      <p class="text-xl md:text-2xl text-gray-300 mb-10 max-w-3xl mx-auto leading-relaxed">
-        Visualización interactiva de predicciones de distribución bajo escenarios climáticos futuros (SSP1-2.6 a SSP5-8.5).
+      
+      <p class="text-lg md:text-xl text-stone-400 mb-6 max-w-2xl mx-auto leading-relaxed reveal reveal-delay-2">
+        Plataforma interactiva para la predicción de la distribución de especies forestales 
+        bajo escenarios climáticos futuros. Visualiza, analiza y compara el impacto del cambio 
+        climático en el hábitat de especies clave a escala regional.
       </p>
-      <a href="#map-section" class="geu-btn text-lg inline-block">
+
+      <div class="flex flex-wrap justify-center gap-4 text-sm text-stone-500 reveal reveal-delay-3">
+        <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-terra-accent"></span>Modelos SDM</span>
+        <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-terra-accent-warm"></span>Escenarios SSP</span>
+        <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-teal-400"></span>Visor 2D/3D</span>
+        <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>Análisis comparativo</span>
+      </div>
+      
+      <a href="#visor" class="terra-btn text-base inline-flex items-center gap-2 mt-10 reveal reveal-delay-3">
         Explorar resultados
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
+        </svg>
       </a>
     </div>
 
-    <div class="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
-      <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
-      </svg>
-    </div>
   `;
 
-  // Smooth scroll para el botón
-  container.querySelector('a[href="#map-section"]').addEventListener('click', (e) => {
-    e.preventDefault();
-    document.getElementById('map-section').scrollIntoView({ behavior: 'smooth' });
-  });
+  const link = container.querySelector('a[href="#visor"]');
+  if (link) {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('visor').scrollIntoView({ behavior: 'smooth' });
+    });
+  }
 }

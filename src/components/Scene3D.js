@@ -6,6 +6,8 @@ import {
   loadSpeciesIndex,
   getPaths,
   getPointCloudIndexUrl,
+  getPeriods,
+  getAlgorithm,
 } from '../utils/config.js';
 import { createHillshadeTexture } from '../utils/hillshade.js';
 import {
@@ -19,7 +21,9 @@ import {
   classifyGEUColor,
 } from '../utils/pickerUtils.js';
 
-export async function initScene3D(containerId, initialModel) {
+
+export async function initScene3D(containerId, initialModel, options = {}) {
+  const { disableGlobalEvents = false } = options;
   const container = document.getElementById(containerId);
   if (!container) return;
 
@@ -63,12 +67,6 @@ export async function initScene3D(containerId, initialModel) {
       </div>
       <div class="absolute top-3 right-3 z-10 flex flex-col gap-2">
         <div class="bg-black/60 backdrop-blur px-3 py-2 rounded-lg border border-white/10 flex items-center gap-2">
-          <label class="text-xs text-gray-400">Nube:</label>
-          <select id="cloud-select" class="geu-select text-xs py-1 min-w-[220px]">
-            ${cloudOptions.map(o => `<option value="${o.url}">${o.label}</option>`).join('')}
-          </select>
-        </div>
-        <div class="bg-black/60 backdrop-blur px-3 py-2 rounded-lg border border-white/10 flex items-center gap-2">
           <label class="text-xs text-gray-400">Textura:</label>
           <select id="texture-select" class="geu-select text-xs py-1 min-w-[160px]">
             <option value="heatmap">Heatmap modelo</option>
@@ -77,6 +75,28 @@ export async function initScene3D(containerId, initialModel) {
             <option value="solid">Sólido (gris)</option>
           </select>
         </div>
+        <div class="bg-black/60 backdrop-blur px-3 py-2 rounded-lg border border-white/10 flex items-center gap-2">
+          <button id="ts-toggle" class="text-xs text-white font-medium bg-geu-accent/20 hover:bg-geu-accent/40 px-3 py-1.5 rounded transition-colors">
+            ▶ Serie temporal
+          </button>
+        </div>
+      </div>
+      <!-- Panel de animación serie temporal -->
+      <div id="ts-panel" class="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-black/70 backdrop-blur px-4 py-3 rounded-xl border border-white/10 hidden min-w-[340px]">
+        <div class="flex items-center justify-center gap-2 mb-2">
+          <button id="ts-mode-temporal" class="ts-mode-btn flex-1 py-1.5 rounded text-xs font-medium bg-geu-accent text-white">Temporal</button>
+          <button id="ts-mode-scenarios" class="ts-mode-btn flex-1 py-1.5 rounded text-xs font-medium bg-gray-700 text-gray-300 hover:bg-gray-600">Escenarios</button>
+        </div>
+        <div class="flex items-center justify-between gap-3 mb-2">
+          <span id="ts-param-label" class="text-[10px] uppercase tracking-wider text-gray-400 font-medium">SSP</span>
+          <select id="ts-param" class="geu-select text-xs py-1 min-w-[160px]"></select>
+        </div>
+        <div class="flex items-center justify-center gap-2 mb-2">
+          <button id="ts-prev" class="px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-white text-xs">◀ Ant</button>
+          <button id="ts-play" class="px-3 py-1 rounded bg-geu-accent hover:bg-blue-600 text-white text-xs font-medium min-w-[70px]">▶ Play</button>
+          <button id="ts-next" class="px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-white text-xs">Sig ▶</button>
+        </div>
+        <div id="ts-timeline" class="flex items-center gap-1"></div>
       </div>
       <!-- Leyenda del heatmap -->
       <div id="scene3d-legend" class="absolute bottom-6 left-6 z-10 bg-black/60 backdrop-blur px-3 py-2 rounded-lg border border-white/10 pointer-events-none hidden">
@@ -91,7 +111,7 @@ export async function initScene3D(containerId, initialModel) {
         </div>
       </div>
       <!-- Tooltip de picking -->
-      <div id="scene3d-picker-card" class="absolute bottom-6 left-6 z-10 bg-black/70 backdrop-blur px-3 py-2 rounded-lg border border-white/10 text-white text-xs hidden max-w-[220px]" style="transform: translateX(100px);">
+      <div id="scene3d-picker-card" class="absolute z-10 bg-black/80 backdrop-blur px-3 py-2 rounded-lg border border-white/10 text-white text-xs hidden max-w-[220px] pointer-events-none">
         <div class="font-semibold text-teal-400 mb-1">Punto seleccionado</div>
         <div id="scene3d-picker-coords" class="font-mono text-[11px] text-gray-300 leading-tight"></div>
         <div id="scene3d-picker-elev" class="font-mono text-[11px] text-gray-300 mt-1"></div>
@@ -151,9 +171,34 @@ export async function initScene3D(containerId, initialModel) {
   let currentScenarioPng = null;
   let currentImgData = null;
   let currentHeatmapBBox = null;
+  let currentHeatmapTexture = null;
+
+  // === ANIMACIÓN SERIE TEMPORAL ===
+  let animationState = {
+    isPlaying: false,
+    mode: 'temporal', // 'temporal' | 'scenarios'
+    sspId: null,      // fijo en modo temporal
+    periodId: null,   // fijo en modo escenarios
+    items: [],        // items del timeline (periods o ssps)
+    itemIdx: 0,
+    speedMs: 6000,
+    transitionMs: 4000,
+    textures: new Map(), // item.id -> Texture
+    timer: null,
+  };
 
   const scene3dLegend = container.querySelector('#scene3d-legend');
   const scene3dPicker = container.querySelector('#scene3d-picker-card');
+
+  // Marcador visual para picking en 3D (anillo horizontal grueso, siempre encima)
+  const pickerMarker = new THREE.Mesh(
+    new THREE.TorusGeometry(500, 60, 8, 64),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false, depthWrite: false, transparent: true, opacity: 0.95 })
+  );
+  pickerMarker.rotation.x = -Math.PI / 2;
+  pickerMarker.renderOrder = 999;
+  pickerMarker.visible = false;
+  scene.add(pickerMarker);
 
   // === CARGAR TERRENO ===
   async function loadTerrain() {
@@ -211,55 +256,110 @@ export async function initScene3D(containerId, initialModel) {
     }
   }
 
-  // === CARGAR HEATMAP ===
-  async function loadHeatmap(model) {
-    if (!terrainMesh || !currentBBox || !index) return;
-    const paths = getPaths(index, model.species.id, model.algorithm.id, model.scenario);
-    if (!paths.png) return;
+  // Placeholder textura transparente 1x1
+  const placeholderTex = (() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1; canvas.height = 1;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'rgba(0,0,0,0)';
+    ctx.fillRect(0,0,1,1);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  })();
 
-    if (heatmapMesh) {
-      worldGroup.remove(heatmapMesh);
-      heatmapMesh.geometry.dispose();
-      heatmapMesh.material.map?.dispose();
-      heatmapMesh.material.dispose();
-      heatmapMesh = null;
-    }
-
-    const texture = await new Promise((resolve) => {
-      new THREE.TextureLoader().load(
-        paths.png,
-        (tex) => { tex.colorSpace = THREE.SRGBColorSpace; resolve(tex); },
-        undefined,
-        () => resolve(null)
-      );
-    });
-    if (!texture) return;
-
-    const geo = terrainMesh.geometry.clone();
-    // Voltear UV verticalmente porque PNG origen=arriba, Three.js UV origen=abajo
-    const uvs = geo.attributes.uv.array;
-    for (let i = 1; i < uvs.length; i += 2) {
-      uvs[i] = 1 - uvs[i];
-    }
-    geo.attributes.uv.needsUpdate = true;
-
-    const mat = new THREE.MeshStandardMaterial({
-      map: texture,
+  function createHeatmapMaterial(tex1, tex2) {
+    return new THREE.ShaderMaterial({
+      uniforms: {
+        uTex1: { value: tex1 || placeholderTex },
+        uTex2: { value: tex2 || placeholderTex },
+        uMixRatio: { value: 0.0 },
+        uOpacity: { value: 0.75 },
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D uTex1;
+        uniform sampler2D uTex2;
+        uniform float uMixRatio;
+        uniform float uOpacity;
+        varying vec2 vUv;
+        void main() {
+          vec4 c1 = texture2D(uTex1, vUv);
+          vec4 c2 = texture2D(uTex2, vUv);
+          vec4 col = mix(c1, c2, uMixRatio);
+          col.a *= uOpacity;
+          if (col.a < 0.01) discard;
+          gl_FragColor = col;
+        }
+      `,
       transparent: true,
-      opacity: 0.75,
-      roughness: 1.0,
-      metalness: 0.0,
       depthWrite: false,
       side: THREE.FrontSide,
       polygonOffset: true,
       polygonOffsetFactor: -4.0,
       polygonOffsetUnits: -4.0,
     });
+  }
 
-    heatmapMesh = new THREE.Mesh(geo, mat);
-    heatmapMesh.rotation.x = -Math.PI / 2;
-    heatmapMesh.position.y = 0.5;
-    worldGroup.add(heatmapMesh);
+  // === CARGAR HEATMAP ===
+  async function loadHeatmap(model, opts = {}) {
+    const { animate = false, duration = 4000, texture: preloadedTexture = null } = opts;
+    if (!terrainMesh || !currentBBox || !index) return null;
+    const paths = getPaths(index, model.species.id, model.algorithm.id, model.scenario);
+    if (!paths.png) return null;
+
+    const texture = preloadedTexture || await loadTexture(paths.png);
+    if (!texture) return null;
+    currentHeatmapTexture = texture;
+
+    if (!heatmapMesh) {
+      const geo = terrainMesh.geometry.clone();
+      const uvs = geo.attributes.uv.array;
+      for (let i = 1; i < uvs.length; i += 2) {
+        uvs[i] = 1 - uvs[i];
+      }
+      geo.attributes.uv.needsUpdate = true;
+
+      const mat = createHeatmapMaterial(texture, placeholderTex);
+      heatmapMesh = new THREE.Mesh(geo, mat);
+      heatmapMesh.rotation.x = -Math.PI / 2;
+      heatmapMesh.position.y = 0.5;
+      worldGroup.add(heatmapMesh);
+      return texture;
+    }
+
+    const mat = heatmapMesh.material;
+    if (animate) {
+      // Transición suave (serie temporal)
+      mat.uniforms.uTex2.value = texture;
+      mat.uniforms.uMixRatio.value = 0.0;
+      const start = performance.now();
+      function step(now) {
+        const t = Math.min((now - start) / duration, 1);
+        const ease = t * t * (3 - 2 * t); // smoothstep
+        mat.uniforms.uMixRatio.value = ease;
+        if (t < 1) {
+          requestAnimationFrame(step);
+        } else {
+          mat.uniforms.uTex1.value = texture;
+          mat.uniforms.uMixRatio.value = 0.0;
+          mat.uniforms.uTex2.value = placeholderTex;
+        }
+      }
+      requestAnimationFrame(step);
+    } else {
+      // Cambio directo
+      mat.uniforms.uTex1.value = texture;
+      mat.uniforms.uMixRatio.value = 0.0;
+      mat.uniforms.uTex2.value = placeholderTex;
+    }
+    return texture;
   }
 
   // === CARGAR NUBE DE PUNTOS ===
@@ -397,6 +497,244 @@ export async function initScene3D(containerId, initialModel) {
     }
   }
 
+  // === FUNCIONES DE ANIMACIÓN SERIE TEMPORAL ===
+  function buildScenario(speciesId, algoId, sspId, periodId) {
+    const algo = getAlgorithm(index, speciesId, algoId);
+    const ssp = algo?.ssps?.find(s => s.id === sspId);
+    if (!ssp || !periodId) return null;
+    return {
+      id: `${sspId}_${periodId}`,
+      label: `${ssp.label} (${getPeriods().find(p => p.id === periodId)?.label || periodId})`,
+      folder: `future/${sspId}_${periodId}`,
+      suffix: `${ssp.suffix}_${periodId.replace('_', '-')}`,
+    };
+  }
+
+  function getParamLabel() {
+    return animationState.mode === 'temporal' ? 'SSP' : 'Período';
+  }
+
+  function getParamOptions(model) {
+    const algo = model?.algorithm;
+    if (animationState.mode === 'temporal') {
+      return (algo?.ssps || []).map(s => ({ id: s.id, label: s.label }));
+    } else {
+      return getPeriods().filter(p => algo?.periods?.includes(p.id)).map(p => ({ id: p.id, label: p.label }));
+    }
+  }
+
+  function getFixedParam() {
+    return animationState.mode === 'temporal' ? animationState.sspId : animationState.periodId;
+  }
+
+  function setFixedParam(value) {
+    if (animationState.mode === 'temporal') animationState.sspId = value;
+    else animationState.periodId = value;
+  }
+
+  async function preloadForMode(model) {
+    if (!index) return;
+    const algo = model.algorithm;
+    animationState.textures.clear();
+
+    // Precargar escenario actual primero
+    const actualScenario = { id: 'actual', label: 'Actual (Presente)', folder: 'current', suffix: 'Actual' };
+    const actualPaths = getPaths(index, model.species.id, model.algorithm.id, actualScenario);
+    const actualTex = await loadTexture(actualPaths.png);
+    if (actualTex) animationState.textures.set('actual', actualTex);
+
+    if (animationState.mode === 'temporal') {
+      const periods = getPeriods().filter(p => algo?.periods?.includes(p.id));
+      animationState.items = [{ id: 'actual', label: 'Actual' }, ...periods];
+      const sspId = animationState.sspId;
+      for (const item of periods) {
+        const scenario = buildScenario(model.species.id, model.algorithm.id, sspId, item.id);
+        if (!scenario) continue;
+        const paths = getPaths(index, model.species.id, model.algorithm.id, scenario);
+        const tex = await loadTexture(paths.png);
+        if (tex) animationState.textures.set(item.id, tex);
+      }
+    } else {
+      const ssps = (algo?.ssps || []).map(s => ({ id: s.id, label: s.label }));
+      animationState.items = [{ id: 'actual', label: 'Actual' }, ...ssps];
+      const periodId = animationState.periodId;
+      for (const item of ssps) {
+        const scenario = buildScenario(model.species.id, model.algorithm.id, item.id, periodId);
+        if (!scenario) continue;
+        const paths = getPaths(index, model.species.id, model.algorithm.id, scenario);
+        const tex = await loadTexture(paths.png);
+        if (tex) animationState.textures.set(item.id, tex);
+      }
+    }
+  }
+
+  async function loadTexture(url) {
+    return new Promise((resolve) => {
+      new THREE.TextureLoader().load(
+        url,
+        (t) => { t.colorSpace = THREE.SRGBColorSpace; resolve(t); },
+        undefined,
+        () => resolve(null)
+      );
+    });
+  }
+
+  async function goToItem(idx) {
+    if (!animationState.items.length || !currentModel) return;
+    animationState.itemIdx = ((idx % animationState.items.length) + animationState.items.length) % animationState.items.length;
+    const item = animationState.items[animationState.itemIdx];
+
+    let scenario;
+    if (item.id === 'actual') {
+      scenario = { id: 'actual', label: 'Actual (Presente)', folder: 'current', suffix: 'Actual' };
+    } else if (animationState.mode === 'temporal') {
+      scenario = buildScenario(currentModel.species.id, currentModel.algorithm.id, animationState.sspId, item.id);
+    } else {
+      scenario = buildScenario(currentModel.species.id, currentModel.algorithm.id, item.id, animationState.periodId);
+    }
+    if (!scenario) return;
+
+    const model = {
+      ...currentModel,
+      period: item.id === 'actual' ? null : (animationState.mode === 'temporal' ? item : getPeriods().find(p => p.id === animationState.periodId)),
+      scenario,
+      paths: getPaths(index, currentModel.species.id, currentModel.algorithm.id, scenario),
+    };
+
+    currentScenarioPng = model.paths?.png || null;
+    await updateHeatmapBBoxFromScenario(model);
+    if (currentScenarioPng) {
+      currentImgData = await loadImageToCanvas(currentScenarioPng);
+      if (currentImgData) currentImgData.url = currentScenarioPng;
+      await updateLegend();
+    }
+
+    if (currentTextureType === 'heatmap') {
+      const precached = animationState.textures.get(item.id);
+      await loadHeatmap(model, { animate: true, duration: animationState.transitionMs, texture: precached });
+    }
+
+    updateTimelineUI();
+  }
+
+  function playAnimation() {
+    if (animationState.isPlaying) return;
+    animationState.isPlaying = true;
+    updatePlayButton();
+
+    function tick() {
+      if (!animationState.isPlaying) return;
+      animationState.timer = setTimeout(async () => {
+        if (!animationState.isPlaying) return;
+        let nextIdx = (animationState.itemIdx + 1) % animationState.items.length;
+        let attempts = 0;
+        while (!animationState.textures.has(animationState.items[nextIdx].id) && attempts < animationState.items.length) {
+          nextIdx = (nextIdx + 1) % animationState.items.length;
+          attempts++;
+        }
+        if (animationState.textures.has(animationState.items[nextIdx].id)) {
+          await goToItem(nextIdx);
+        }
+        tick();
+      }, animationState.speedMs);
+    }
+    tick();
+  }
+
+  function stopAnimation() {
+    animationState.isPlaying = false;
+    if (animationState.timer) {
+      clearTimeout(animationState.timer);
+      animationState.timer = null;
+    }
+    updatePlayButton();
+  }
+
+  function updatePlayButton() {
+    const btn = container.querySelector('#ts-play');
+    if (btn) btn.textContent = animationState.isPlaying ? '⏸ Pausa' : '▶ Play';
+  }
+
+  function updateTimelineUI() {
+    const timeline = container.querySelector('#ts-timeline');
+    if (!timeline || !animationState.items.length) return;
+    timeline.innerHTML = animationState.items.map((item, i) => {
+      const hasData = animationState.textures.has(item.id);
+      const active = i === animationState.itemIdx;
+      return `
+        <button class="ts-timeline-btn flex-1 py-2 rounded text-xs font-medium transition-colors ${active ? 'bg-geu-accent text-white' : (hasData ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-800 text-gray-600 cursor-not-allowed')}" data-idx="${i}" ${!hasData ? 'disabled' : ''}>
+          ${item.label}
+        </button>
+      `;
+    }).join('');
+    timeline.querySelectorAll('.ts-timeline-btn:not([disabled])').forEach(btn => {
+      btn.addEventListener('click', () => {
+        stopAnimation();
+        goToItem(parseInt(btn.dataset.idx));
+      });
+    });
+  }
+
+  async function initAnimationForModel(model) {
+    if (!model) return;
+    stopAnimation();
+
+    // Inferir parámetro fijo del modelo actual si no está seteado
+    const inferredSsp = model.scenario?.id?.split('_')[0];
+    const algo = model.algorithm;
+    const ssps = algo?.ssps || [];
+    const periods = getPeriods().filter(p => algo?.periods?.includes(p.id));
+
+    if (animationState.mode === 'temporal') {
+      if (!animationState.sspId || !ssps.find(s => s.id === animationState.sspId)) {
+        animationState.sspId = (inferredSsp && ssps.find(s => s.id === inferredSsp)) ? inferredSsp : (ssps[0]?.id || null);
+      }
+      animationState.periodId = null;
+    } else {
+      if (!animationState.periodId || !periods.find(p => p.id === animationState.periodId)) {
+        animationState.periodId = periods[periods.length - 1]?.id || null;
+      }
+      animationState.sspId = null;
+    }
+
+    await preloadForMode(model);
+    animationState.itemIdx = animationState.items.length - 1;
+    await goToItem(animationState.itemIdx);
+    updateParamSelect(model);
+    updateModeButtons();
+  }
+
+  function updateModeButtons() {
+    const btnTemp = container.querySelector('#ts-mode-temporal');
+    const btnSce = container.querySelector('#ts-mode-scenarios');
+    if (!btnTemp || !btnSce) return;
+    if (animationState.mode === 'temporal') {
+      btnTemp.className = 'ts-mode-btn flex-1 py-1.5 rounded text-xs font-medium bg-geu-accent text-white';
+      btnSce.className = 'ts-mode-btn flex-1 py-1.5 rounded text-xs font-medium bg-gray-700 text-gray-300 hover:bg-gray-600';
+    } else {
+      btnTemp.className = 'ts-mode-btn flex-1 py-1.5 rounded text-xs font-medium bg-gray-700 text-gray-300 hover:bg-gray-600';
+      btnSce.className = 'ts-mode-btn flex-1 py-1.5 rounded text-xs font-medium bg-geu-accent text-white';
+    }
+    const label = container.querySelector('#ts-param-label');
+    if (label) label.textContent = getParamLabel();
+  }
+
+  function updateParamSelect(model) {
+    const select = container.querySelector('#ts-param');
+    if (!select) return;
+    const options = getParamOptions(model);
+    const currentVal = getFixedParam();
+    select.innerHTML = options.map(o =>
+      `<option value="${o.id}" ${o.id === currentVal ? 'selected' : ''}>${o.label}</option>`
+    ).join('');
+    if (options.find(o => o.id === currentVal)) {
+      select.value = currentVal;
+    } else if (options.length) {
+      select.value = options[0].id;
+      setFixedParam(options[0].id);
+    }
+  }
+
   // === INICIALIZACIÓN ===
   const terrainInfo = await loadTerrain();
   if (terrainInfo) {
@@ -515,6 +853,7 @@ export async function initScene3D(containerId, initialModel) {
     const intersects = raycaster.intersectObject(terrainMesh);
     if (intersects.length === 0) {
       if (scene3dPicker) scene3dPicker.classList.add('hidden');
+      if (pickerMarker) pickerMarker.visible = false;
       return;
     }
 
@@ -523,6 +862,7 @@ export async function initScene3D(containerId, initialModel) {
     if (!uv || uv.x < 0 || uv.x > 1 || uv.y < 0 || uv.y > 1) {
       console.warn('[Scene3D] UV fuera de rango:', uv);
       if (scene3dPicker) scene3dPicker.classList.add('hidden');
+      if (pickerMarker) pickerMarker.visible = false;
       return;
     }
 
@@ -560,19 +900,64 @@ export async function initScene3D(containerId, initialModel) {
     container.querySelector('#scene3d-picker-elev').textContent = `Elev: ${formatElevation(elev)}`;
     container.querySelector('#scene3d-picker-hex').textContent = hex + (probLabel ? `\n${probLabel}` : '');
     if (hex === '—' && colorBox) colorBox.style.backgroundColor = 'transparent';
+
+    // Posicionar tooltip junto al click y mostrar marcador
     if (scene3dPicker) {
-      if (scene3dLegend && !scene3dLegend.classList.contains('hidden')) {
-        scene3dPicker.style.left = '110px';
-        scene3dPicker.style.transform = 'none';
-      } else {
-        scene3dPicker.style.left = '24px';
-        scene3dPicker.style.transform = 'none';
-      }
+      const rect = renderer.domElement.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      scene3dPicker.style.left = Math.min(x + 16, rect.width - 240) + 'px';
+      scene3dPicker.style.top = Math.min(y + 16, rect.height - 160) + 'px';
+      scene3dPicker.style.bottom = 'auto';
+      scene3dPicker.style.transform = 'none';
       scene3dPicker.classList.remove('hidden');
+    }
+    if (pickerMarker) {
+      pickerMarker.position.copy(hit.point);
+      pickerMarker.position.y += 80;
+      pickerMarker.visible = true;
     }
   }
 
-  renderer.domElement.addEventListener('click', handleSceneClick);
+  // === DRAG DETECTION para evitar picking al orbitar ===
+  let dragStartPos = null;
+  let isDragging = false;
+  const DRAG_THRESHOLD = 6;
+
+  renderer.domElement.addEventListener('pointerdown', (e) => {
+    dragStartPos = { x: e.clientX, y: e.clientY };
+    isDragging = false;
+  });
+
+  renderer.domElement.addEventListener('pointermove', (e) => {
+    if (dragStartPos) {
+      const dx = e.clientX - dragStartPos.x;
+      const dy = e.clientY - dragStartPos.y;
+      if (Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
+        isDragging = true;
+      }
+    }
+  });
+
+  renderer.domElement.addEventListener('pointerup', () => {
+    dragStartPos = null;
+  });
+
+  // === BLOQUEAR SCROLL DE PÁGINA AL HACER ZOOM EN 3D ===
+  renderer.domElement.addEventListener('wheel', (e) => {
+    e.preventDefault();
+  }, { passive: false });
+
+  // Wrapper que ignora clicks que fueron parte de un drag
+  function onSceneClickWrapper(event) {
+    if (isDragging) {
+      isDragging = false;
+      return;
+    }
+    handleSceneClick(event);
+  }
+
+  renderer.domElement.addEventListener('click', onSceneClickWrapper);
 
   async function updateHeatmapBBoxFromScenario(model) {
     if (!index) return;
@@ -601,8 +986,7 @@ export async function initScene3D(containerId, initialModel) {
     }
   }
 
-  window.addEventListener('model-changed', async (e) => {
-    const model = e.detail;
+  async function applyModel(model) {
     if (!model) return;
     currentModel = model;
 
@@ -630,6 +1014,9 @@ export async function initScene3D(containerId, initialModel) {
         }
         await loadPointCloudScene();
       }
+      // Resetear animación al cambiar especie/algoritmo
+      stopAnimation();
+      animationState.textures.clear();
     }
 
     currentScenarioPng = model.paths?.png || null;
@@ -639,9 +1026,10 @@ export async function initScene3D(containerId, initialModel) {
       if (currentImgData) currentImgData.url = currentScenarioPng;
       await updateLegend();
     }
-    if (currentTextureType === 'heatmap') {
+    const animPanelVisible = tsPanel && !tsPanel.classList.contains('hidden');
+    if (currentTextureType === 'heatmap' && !animPanelVisible) {
       await loadHeatmap(model);
-    } else {
+    } else if (currentTextureType !== 'heatmap') {
       if (heatmapMesh) {
         worldGroup.remove(heatmapMesh);
         heatmapMesh.geometry.dispose();
@@ -651,7 +1039,16 @@ export async function initScene3D(containerId, initialModel) {
       }
       await applyTerrainTexture(currentTextureType, model);
     }
-  });
+
+    // Si el panel de animación está activo, sincronizar SSP y mostrar timeline
+    if (animPanelVisible) {
+      await initAnimationForModel(model);
+    }
+  }
+
+  if (!disableGlobalEvents) {
+    window.addEventListener('model-changed', async (e) => applyModel(e.detail));
+  }
 
   if (cloudSelect) {
     let isLoadingCloud = false;
@@ -691,6 +1088,91 @@ export async function initScene3D(containerId, initialModel) {
     textureSelect.addEventListener('change', async (e) => {
       const type = e.target.value;
       await applyTerrainTexture(type, currentModel);
+      const panel = container.querySelector('#ts-panel');
+      if (panel) {
+        if (type === 'heatmap') panel.classList.remove('hidden');
+        else { panel.classList.add('hidden'); stopAnimation(); }
+      }
+    });
+  }
+
+  // Controles de animación serie temporal
+  const tsToggle = container.querySelector('#ts-toggle');
+  const tsPanel = container.querySelector('#ts-panel');
+  const tsParam = container.querySelector('#ts-param');
+  const tsPlay = container.querySelector('#ts-play');
+  const tsPrev = container.querySelector('#ts-prev');
+  const tsNext = container.querySelector('#ts-next');
+  const tsModeTemp = container.querySelector('#ts-mode-temporal');
+  const tsModeSce = container.querySelector('#ts-mode-scenarios');
+
+  if (tsToggle && tsPanel) {
+    tsToggle.addEventListener('click', async () => {
+      if (tsPanel.classList.contains('hidden')) {
+        tsPanel.classList.remove('hidden');
+        if (textureSelect && textureSelect.value !== 'heatmap') {
+          textureSelect.value = 'heatmap';
+          await applyTerrainTexture('heatmap', currentModel);
+        }
+        if (currentModel) await initAnimationForModel(currentModel);
+        tsToggle.textContent = '⏸ Ocultar serie';
+        tsToggle.classList.add('bg-geu-accent/60');
+      } else {
+        tsPanel.classList.add('hidden');
+        stopAnimation();
+        tsToggle.textContent = '▶ Serie temporal';
+        tsToggle.classList.remove('bg-geu-accent/60');
+      }
+    });
+  }
+
+  if (tsModeTemp) {
+    tsModeTemp.addEventListener('click', async () => {
+      if (animationState.mode === 'temporal') return;
+      animationState.mode = 'temporal';
+      if (currentModel) await initAnimationForModel(currentModel);
+    });
+  }
+
+  if (tsModeSce) {
+    tsModeSce.addEventListener('click', async () => {
+      if (animationState.mode === 'scenarios') return;
+      animationState.mode = 'scenarios';
+      if (currentModel) await initAnimationForModel(currentModel);
+    });
+  }
+
+  if (tsParam) {
+    tsParam.addEventListener('change', async () => {
+      stopAnimation();
+      setFixedParam(tsParam.value);
+      if (currentModel) {
+        await preloadForMode(currentModel);
+        animationState.itemIdx = animationState.items.length - 1;
+        await goToItem(animationState.itemIdx);
+        updateTimelineUI();
+      }
+    });
+  }
+
+  if (tsPlay) {
+    tsPlay.addEventListener('click', () => {
+      if (animationState.isPlaying) stopAnimation();
+      else playAnimation();
+    });
+  }
+
+  if (tsPrev) {
+    tsPrev.addEventListener('click', () => {
+      stopAnimation();
+      goToItem(animationState.itemIdx - 1);
+    });
+  }
+
+  if (tsNext) {
+    tsNext.addEventListener('click', () => {
+      stopAnimation();
+      goToItem(animationState.itemIdx + 1);
     });
   }
 
@@ -708,4 +1190,64 @@ export async function initScene3D(containerId, initialModel) {
     camera.updateProjectionMatrix();
     renderer.setSize(cw, ch);
   });
+
+  function exportPNG() {
+    try {
+      renderer.render(scene, camera);
+      return renderer.domElement.toDataURL('image/png');
+    } catch (err) {
+      console.error('[Scene3D] Error exportando PNG:', err);
+      return null;
+    }
+  }
+
+  async function exportGLB(filename) {
+    const { GLTFExporter } = await import('three/examples/jsm/exporters/GLTFExporter.js');
+    const exporter = new GLTFExporter();
+
+    // Construir grupo de exportación limpio (sin overlays duplicados)
+    const exportGroup = new THREE.Group();
+
+    // 1. Terreno con textura del heatmap aplicada directamente
+    if (terrainMesh) {
+      const terrainClone = terrainMesh.clone();
+      if (currentHeatmapTexture) {
+        terrainClone.material = new THREE.MeshStandardMaterial({
+          map: currentHeatmapTexture,
+          roughness: 0.9,
+          metalness: 0.05,
+          side: THREE.FrontSide,
+        });
+      }
+      exportGroup.add(terrainClone);
+    }
+
+    // 2. Nube de puntos (si existe)
+    if (pointCloudMesh) {
+      exportGroup.add(pointCloudMesh.clone());
+    }
+
+    return new Promise((resolve, reject) => {
+      exporter.parse(
+        exportGroup,
+        (gltf) => {
+          const blob = new Blob([gltf], { type: 'model/gltf-binary' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          a.click();
+          URL.revokeObjectURL(url);
+          resolve();
+        },
+        (err) => {
+          console.error('[Scene3D] GLTFExporter error:', err);
+          reject(err);
+        },
+        { binary: true }
+      );
+    });
+  }
+
+  return { applyModel, exportPNG, exportGLB };
 }

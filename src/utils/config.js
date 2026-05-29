@@ -119,6 +119,17 @@ export function getDiffPath(index, speciesId, algoId, sspId, periodId) {
 }
 
 /**
+ * Ruta del JSON de tablas de diferencias para un período dado.
+ */
+export function getDiffTablesPath(index, speciesId, algoId, periodId) {
+  const algo = getAlgorithm(index, speciesId, algoId);
+  if (!algo || !periodId) return null;
+  const prefix = algo?.prefix || '';
+  const periodSuffix = periodId.replace('_', '-');
+  return `./data/species/${speciesId}/${algoId}/diff/${prefix}_${periodSuffix}_DifferenceTables.json`;
+}
+
+/**
  * Ruta base para los point clouds de una especie+algoritmo.
  */
 export function getPointCloudBase(speciesId, algoId) {

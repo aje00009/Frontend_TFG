@@ -1,4 +1,4 @@
-import { loadSpeciesIndex, getDiffPath, getPeriods } from '../utils/config.js';
+import { loadSpeciesIndex, getDiffPath, getDiffTablesPath, getPeriods } from '../utils/config.js';
 
 export async function initDiffMap(containerId) {
   const container = document.getElementById(containerId);
@@ -36,12 +36,14 @@ export async function initDiffMap(containerId) {
       <div class="flex items-center gap-2 text-sm text-gray-300"><span class="inline-block w-4 h-4 rounded bg-green-500"></span> Ganancia de hábitat</div>
       <div class="flex items-center gap-2 text-sm text-gray-300"><span class="inline-block w-4 h-4 rounded bg-gray-500"></span> Sin cambio</div>
     </div>
+    <div id="diff-tables" class="mt-12 max-w-4xl mx-auto"></div>
   `;
 
   const img = container.querySelector('#diff-img');
   const placeholder = container.querySelector('#diff-placeholder');
   const periodSelect = container.querySelector('#diff-period-select');
   const sspSelect = container.querySelector('#diff-ssp-select');
+  const tablesContainer = container.querySelector('#diff-tables');
 
   let index;
   try {
@@ -56,6 +58,154 @@ export async function initDiffMap(containerId) {
   let currentSspId = null;
 
   const allPeriods = getPeriods();
+
+  function fmtNum(v) {
+    if (v == null) return '-';
+    return new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
+  }
+
+  function fmtPct(v) {
+    if (v == null) return '-';
+    const sign = v > 0 ? '+' : '';
+    return `${sign}${fmtNum(v)}%`;
+  }
+
+  function pctColorClass(v) {
+    if (v == null) return 'text-gray-400';
+    if (v < 0) return 'text-red-400';
+    if (v > 0) return 'text-green-400';
+    return 'text-gray-400';
+  }
+
+  function tableHeader(title) {
+    return `
+      <div class="flex items-center gap-3 mb-3 mt-8">
+        <div class="h-px flex-1 bg-gray-600"></div>
+        <h3 class="text-sm font-semibold text-gray-300 uppercase tracking-wider whitespace-nowrap">${title}</h3>
+        <div class="h-px flex-1 bg-gray-600"></div>
+      </div>
+    `;
+  }
+
+  function renderTables(data, ssps) {
+    if (!data) {
+      tablesContainer.innerHTML = '';
+      return;
+    }
+
+    const current = data.current || {};
+    const futures = data.futures || [];
+    const threshold = data.threshold ?? 0.5;
+
+    // Tabla 1: Área por umbral
+    let html = tableHeader(`Área por umbral (${threshold})`);
+    html += `<table class="w-full text-sm text-left border-collapse">
+      <thead>
+        <tr class="border-b border-gray-600 text-gray-400">
+          <th class="py-2 px-3 font-medium">Escenario</th>
+          <th class="py-2 px-3 font-medium text-right">Área (km2)</th>
+          <th class="py-2 px-3 font-medium text-right">Cambio (%)</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-700/60">
+        <tr class="text-gray-200">
+          <td class="py-2 px-3">Actual</td>
+          <td class="py-2 px-3 text-right font-mono">${fmtNum(current.occupiedAreaKm2)}</td>
+          <td class="py-2 px-3 text-right font-mono text-gray-400">-</td>
+        </tr>`;
+
+    futures.forEach(f => {
+      html += `<tr class="text-gray-200">
+        <td class="py-2 px-3">SDM ${f.scenario} ${f.period?.replace(/-/g, '')}</td>
+        <td class="py-2 px-3 text-right font-mono">${fmtNum(f.occupiedAreaKm2)}</td>
+        <td class="py-2 px-3 text-right font-mono ${pctColorClass(f.occupiedAreaChangePct)}">${fmtPct(f.occupiedAreaChangePct)}</td>
+      </tr>`;
+    });
+
+    html += `</tbody></table>`;
+
+    // Tabla 2: Área continua ponderada
+    html += tableHeader('Área continua ponderada');
+    html += `<table class="w-full text-sm text-left border-collapse">
+      <thead>
+        <tr class="border-b border-gray-600 text-gray-400">
+          <th class="py-2 px-3 font-medium">Escenario</th>
+          <th class="py-2 px-3 font-medium text-right">Área cont. (km2)</th>
+          <th class="py-2 px-3 font-medium text-right">Cambio (%)</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-700/60">
+        <tr class="text-gray-200">
+          <td class="py-2 px-3">Actual</td>
+          <td class="py-2 px-3 text-right font-mono">${fmtNum(current.continuousAreaKm2)}</td>
+          <td class="py-2 px-3 text-right font-mono text-gray-400">-</td>
+        </tr>`;
+
+    futures.forEach(f => {
+      html += `<tr class="text-gray-200">
+        <td class="py-2 px-3">SDM ${f.scenario} ${f.period?.replace(/-/g, '')}</td>
+        <td class="py-2 px-3 text-right font-mono">${fmtNum(f.continuousAreaKm2)}</td>
+        <td class="py-2 px-3 text-right font-mono ${pctColorClass(f.continuousAreaChangePct)}">${fmtPct(f.continuousAreaChangePct)}</td>
+      </tr>`;
+    });
+
+    html += `</tbody></table>`;
+
+    // Tabla 3: Balance de hábitat continuo
+    html += tableHeader('Balance de hábitat continuo');
+    html += `<table class="w-full text-sm text-left border-collapse">
+      <thead>
+        <tr class="border-b border-gray-600 text-gray-400">
+          <th class="py-2 px-3 font-medium">Escenario</th>
+          <th class="py-2 px-3 font-medium text-right">Pérdida</th>
+          <th class="py-2 px-3 font-medium text-right">Ganancia</th>
+          <th class="py-2 px-3 font-medium text-right">Estable</th>
+          <th class="py-2 px-3 font-medium text-right">Cambio neto</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-700/60">
+        <tr class="text-gray-200">
+          <td class="py-2 px-3">Actual</td>
+          <td class="py-2 px-3 text-right font-mono text-gray-400">${fmtNum(0)}</td>
+          <td class="py-2 px-3 text-right font-mono text-gray-400">${fmtNum(0)}</td>
+          <td class="py-2 px-3 text-right font-mono">${fmtNum(current.continuousAreaKm2)}</td>
+          <td class="py-2 px-3 text-right font-mono text-gray-400">+0,0%</td>
+        </tr>`;
+
+    futures.forEach(f => {
+      html += `<tr class="text-gray-200">
+        <td class="py-2 px-3">SDM ${f.scenario} ${f.period?.replace(/-/g, '')}</td>
+        <td class="py-2 px-3 text-right font-mono text-red-400">${fmtNum(f.habitatLossKm2)}</td>
+        <td class="py-2 px-3 text-right font-mono text-green-400">${fmtNum(f.habitatGainKm2)}</td>
+        <td class="py-2 px-3 text-right font-mono">${fmtNum(f.habitatStableKm2)}</td>
+        <td class="py-2 px-3 text-right font-mono ${pctColorClass(f.netChangePct)}">${fmtPct(f.netChangePct)}</td>
+      </tr>`;
+    });
+
+    html += `</tbody></table>`;
+
+    tablesContainer.innerHTML = html;
+  }
+
+  async function loadTables(speciesId, algoId, periodId, ssps) {
+    const path = getDiffTablesPath(index, speciesId, algoId, periodId);
+    if (!path) {
+      tablesContainer.innerHTML = '';
+      return;
+    }
+    try {
+      const res = await fetch(path);
+      if (!res.ok) {
+        tablesContainer.innerHTML = '';
+        return;
+      }
+      const data = await res.json();
+      renderTables(data, ssps);
+    } catch (err) {
+      console.warn('[DiffMap] No se pudieron cargar las tablas:', err);
+      tablesContainer.innerHTML = '';
+    }
+  }
 
   function extractPeriodAndSsp(scenarioId) {
     if (!scenarioId || scenarioId === 'actual') return { periodId: null, sspId: null };
@@ -145,10 +295,12 @@ export async function initDiffMap(containerId) {
 
     if (currentPeriodId && currentSspId) {
       loadDiffImage(model.species.id, model.algorithm.id, currentPeriodId, currentSspId);
+      loadTables(model.species.id, model.algorithm.id, currentPeriodId, ssps);
     } else {
       img.classList.add('hidden');
       placeholder.classList.remove('hidden');
       placeholder.querySelector('span').textContent = 'Selecciona un período y un SSP para ver las diferencias.';
+      tablesContainer.innerHTML = '';
     }
   }
 
@@ -157,6 +309,7 @@ export async function initDiffMap(containerId) {
     currentPeriodId = periodSelect.value;
     currentSspId = sspSelect.value;
     loadDiffImage(currentModel.species.id, currentModel.algorithm.id, currentPeriodId, currentSspId);
+    loadTables(currentModel.species.id, currentModel.algorithm.id, currentPeriodId, currentModel.algorithm?.ssps || []);
   }
 
   if (periodSelect) {

@@ -38,7 +38,7 @@ export async function initScenarioSelector(onChange) {
 
   function renderOptions() {
     container.innerHTML = `
-      <div class="flex flex-wrap items-center gap-3 bg-geu-panel/90 backdrop-blur px-5 py-3 rounded-2xl border border-white/10 shadow-2xl">
+      <div class="flex flex-nowrap items-center gap-3 bg-geu-panel/90 backdrop-blur px-5 py-3 rounded-2xl border border-white/10 shadow-2xl overflow-x-auto max-w-[95vw]">
         <div class="flex items-center gap-2">
           <label class="text-sm text-gray-400 font-medium">Especie:</label>
           <select id="species-select" class="geu-select min-w-[180px]">

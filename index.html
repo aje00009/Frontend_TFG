@@ -4,35 +4,204 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GEU - Predicción de Especies</title>
+    <title>TerraPredict — Predicción de Distribución de Especies</title>
     <!-- Cesium assets deben cargarse ANTES de importar el módulo JS -->
     <script>window.CESIUM_BASE_URL = 'https://unpkg.com/cesium@1.118.0/Build/Cesium/';</script>
   </head>
-  <body class="bg-geu-bg text-gray-100 antialiased">
+  <body class="bg-terra-bg text-stone-200 antialiased">
     <div id="app">
-      <!-- Hero -->
-      <section id="hero" class="relative h-screen flex items-center justify-center overflow-hidden"></section>
+      
+      <!-- ========================================== -->
+      <!-- NAVBAR STICKY                              -->
+      <!-- ========================================== -->
+      <nav id="main-nav" class="fixed top-0 w-full z-50 backdrop-blur-xl bg-terra-bg/70 border-b border-terra-border transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+          <a href="#top" class="text-lg font-bold tracking-tight flex items-center gap-2 group">
+            <span class="text-2xl group-hover:scale-110 transition-transform duration-300">🌍</span>
+            <span class="text-white">Terra<span class="text-terra-accent">Predict</span></span>
+          </a>
+          
+          <!-- Desktop links -->
+          <div class="hidden md:flex items-center gap-1">
+            <a href="#visor" class="terra-btn-ghost">Visor</a>
+            <a href="#analisis" class="terra-btn-ghost">Análisis</a>
+            <a href="#cambio-climatico" class="terra-btn-ghost">Cambio Climático</a>
+            <a href="#descargas" class="terra-btn-ghost">Descargas</a>
+          </div>
 
-      <!-- Mapa Principal -->
-      <section id="map-section" class="relative h-screen flex flex-col">
-        <div id="scenario-selector" class="absolute top-4 left-1/2 -translate-x-1/2 z-10"></div>
-        <div id="map-container" class="flex-1 w-full"></div>
+          <!-- Mobile hamburger (funcionalidad básica con JS) -->
+          <button id="mobile-menu-btn" class="md:hidden terra-btn-ghost p-2">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Mobile menu panel -->
+        <div id="mobile-menu" class="md:hidden hidden border-t border-terra-border bg-terra-bg/95 backdrop-blur-xl px-6 py-4 space-y-2">
+          <a href="#visor" class="block px-4 py-2 rounded-lg text-stone-300 hover:text-terra-accent hover:bg-terra-accent/10 transition-colors">Visor</a>
+          <a href="#analisis" class="block px-4 py-2 rounded-lg text-stone-300 hover:text-terra-accent hover:bg-terra-accent/10 transition-colors">Análisis</a>
+          <a href="#cambio-climatico" class="block px-4 py-2 rounded-lg text-stone-300 hover:text-terra-accent hover:bg-terra-accent/10 transition-colors">Cambio Climático</a>
+          <a href="#descargas" class="block px-4 py-2 rounded-lg text-stone-300 hover:text-terra-accent hover:bg-terra-accent/10 transition-colors">Descargas</a>
+        </div>
+      </nav>
+
+      <!-- ========================================== -->
+      <!-- HERO                                       -->
+      <!-- ========================================== -->
+      <section id="top" class="relative min-h-[60vh] flex items-center justify-center pt-16 overflow-hidden">
+        <div id="hero" class="relative w-full h-full flex items-center justify-center"></div>
       </section>
 
-      <!-- Dashboard Métricas -->
-      <section id="dashboard" class="py-16 px-6 max-w-7xl mx-auto"></section>
+      <!-- ========================================== -->
+      <!-- VISOR 2D/3D                                -->
+      <!-- ========================================== -->
+      <section id="visor" class="relative mx-4 md:mx-6 lg:mx-auto max-w-[1600px] pt-20">
+        <header class="terra-section-header mb-4">
+          <h2>Visor Geoespacial</h2>
+          <p>Explora la distribución modelada en 2D o visualiza el terreno en 3D con elevación real.</p>
+        </header>
 
-      <!-- Curvas de Respuesta -->
-      <section id="curves" class="py-16 px-6 max-w-7xl mx-auto"></section>
+        <!-- Barra de herramientas encima del visor -->
+        <div class="flex items-center justify-between mb-3 px-1">
+          <div id="viewer-mode-toggle" class="flex gap-2 bg-terra-surface/80 backdrop-blur-md rounded-xl p-1 border border-terra-border">
+            <button id="mode-btn-2d" class="px-4 py-2 rounded-lg text-sm font-medium bg-terra-accent text-terra-bg shadow-sm transition-all">2D</button>
+            <button id="mode-btn-3d" class="px-4 py-2 rounded-lg text-sm font-medium text-stone-300 hover:text-white hover:bg-white/5 transition-all">3D</button>
+          </div>
+          <div class="flex gap-2">
+            <button id="btn-export-png" class="terra-btn-outline text-sm flex items-center gap-1.5" title="Exportar imagen">
+              <span>📷</span> PNG
+            </button>
+            <button id="btn-export-glb" class="terra-btn-outline text-sm flex items-center gap-1.5" title="Exportar modelo 3D">
+              <span>🧊</span> GLB
+            </button>
+          </div>
+        </div>
 
-      <!-- Mapa de Diferencias -->
-      <section id="diff" class="py-16 px-6 max-w-7xl mx-auto"></section>
+        <!-- Contenedor del visor con altura fija y bordes redondeados -->
+        <div class="relative h-[80vh] md:h-[85vh] overflow-hidden rounded-2xl border border-terra-border shadow-2xl shadow-black/40">
+          
+          <!-- Selector principal -->
+          <div id="scenario-selector" class="absolute top-4 left-1/2 -translate-x-1/2 z-30"></div>
 
-      <!-- Visualización 3D con Árboles -->
-      <section id="scene3d" class="h-screen relative"></section>
+          <!-- Visor 2D -->
+          <div id="viewer-2d" class="absolute inset-0 z-10">
+            <div id="map-container" class="w-full h-full"></div>
+          </div>
 
-      <!-- Descargas -->
-      <section id="downloads" class="py-16 px-6 max-w-7xl mx-auto"></section>
+          <!-- Visor 3D -->
+          <div id="viewer-3d" class="absolute inset-0 z-0 invisible">
+            <div id="scene3d" class="w-full h-full"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- ANÁLISIS DEL MODELO                        -->
+      <!-- ========================================== -->
+      <section id="analisis" class="py-24 px-6 max-w-7xl mx-auto">
+        <header class="terra-section-header reveal">
+          <h2>Análisis del Modelo</h2>
+          <p>Métricas de rendimiento, curvas de respuesta y distribución de probabilidades del modelo seleccionado.</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Métricas -->
+          <div class="terra-card reveal min-h-[420px] flex flex-col">
+            <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <svg class="w-5 h-5 text-terra-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+              Métricas
+            </h3>
+            <div id="dashboard" class="flex-1"></div>
+          </div>
+
+          <!-- Curvas de Respuesta -->
+          <div class="terra-card reveal min-h-[420px] flex flex-col">
+            <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <svg class="w-5 h-5 text-terra-accent-warm" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
+              Curvas de Respuesta
+            </h3>
+            <div id="curves" class="flex-1"></div>
+          </div>
+
+          <!-- Histograma de Probabilidad -->
+          <div class="terra-card reveal lg:col-span-2 min-h-[380px] flex flex-col">
+            <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <svg class="w-5 h-5 text-terra-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
+              Histograma de Probabilidad
+            </h3>
+            <div id="histogram" class="flex-1"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- CAMBIO CLIMÁTICO                           -->
+      <!-- ========================================== -->
+      <section id="cambio-climatico" class="py-24 px-6 max-w-7xl mx-auto">
+        <header class="terra-section-header reveal">
+          <h2>Cambio Climático</h2>
+          <p>Impacto proyectado del cambio climático en la distribución del hábitat. Comparación entre periodos y escenarios.</p>
+        </header>
+
+        <div class="grid grid-cols-1 gap-6">
+          <!-- Mapa de Diferencias -->
+          <div class="terra-card reveal min-h-[520px] flex flex-col">
+            <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 7m0 13V7"></path></svg>
+              Mapa de Diferencias
+            </h3>
+            <div id="diff" class="flex-1"></div>
+          </div>
+
+          <!-- Comparador Lado a Lado -->
+          <div class="terra-card reveal min-h-[520px] flex flex-col">
+            <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <svg class="w-5 h-5 text-terra-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+              Comparador Lado a Lado
+            </h3>
+            <div id="comparator" class="flex-1"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- DESCARGAS                                  -->
+      <!-- ========================================== -->
+      <section id="descargas" class="py-24 px-6 max-w-7xl mx-auto">
+        <header class="terra-section-header reveal">
+          <h2>Descargas de Datos</h2>
+          <p>Exporta los datos procesados, mapas, métricas y modelos 3D para tus propios análisis.</p>
+        </header>
+
+        <div class="terra-card reveal">
+          <div id="downloads"></div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- FOOTER                                     -->
+      <!-- ========================================== -->
+      <footer class="border-t border-terra-border py-16 text-center">
+        <div class="max-w-7xl mx-auto px-6">
+          <div class="flex items-center justify-center gap-2 mb-4 text-2xl font-bold">
+            <span>🌍</span>
+            <span class="text-white">Terra<span class="text-terra-accent">Predict</span></span>
+          </div>
+          <p class="text-stone-500 max-w-lg mx-auto mb-6">
+            Plataforma de predicción de distribución de especies bajo escenarios climáticos futuros. 
+            Proyecto GEU — Geo-Ecological Unit.
+          </p>
+          <div class="flex justify-center gap-6 text-sm text-stone-600">
+            <span>© 2025 TerraPredict</span>
+            <span>·</span>
+            <span>GEU</span>
+            <span>·</span>
+            <span>Ciencia Abierta</span>
+          </div>
+        </div>
+      </footer>
+
     </div>
     <script type="module" src="/src/main.js"></script>
   </body>
