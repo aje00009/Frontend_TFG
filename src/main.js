@@ -156,7 +156,20 @@ import { initDownloads } from './components/Downloads.js';
   }
 
   // ==========================================
-  // 7. NAVBAR: EFECTO AL HACER SCROLL
+  // 7. PANEL EXPLICATIVO SSP
+  // ==========================================
+  const sspToggle = document.getElementById('ssp-info-toggle');
+  const sspPanel = document.getElementById('ssp-info-panel');
+  const sspChevron = document.getElementById('ssp-chevron');
+  if (sspToggle && sspPanel) {
+    sspToggle.addEventListener('click', () => {
+      sspPanel.classList.toggle('hidden');
+      if (sspChevron) sspChevron.classList.toggle('rotate-180');
+    });
+  }
+
+  // ==========================================
+  // 8. NAVBAR: EFECTO AL HACER SCROLL
   // ==========================================
   const nav = document.getElementById('main-nav');
   if (nav) {

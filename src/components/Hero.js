@@ -10,7 +10,7 @@ export function initHero() {
     <div class="relative z-10 text-center px-4 max-w-4xl mx-auto">
       <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-terra-accent/10 border border-terra-accent/20 text-terra-accent text-xs font-semibold tracking-wide uppercase mb-6 reveal">
         <span class="w-1.5 h-1.5 rounded-full bg-terra-accent animate-pulse"></span>
-        Proyecto GEU
+        Predicción de Distribución
       </div>
       
       <h1 class="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 tracking-tight reveal reveal-delay-1">

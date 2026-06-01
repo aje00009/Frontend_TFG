@@ -156,6 +156,14 @@ export async function initSideBySideComparator(containerId, initialModel) {
         <div id="comp-2d-right-map" class="w-full h-full"></div>
       </div>
     </div>
+    <!-- Leyenda de colores -->
+    <div class="flex flex-wrap justify-center gap-4 mt-4 text-sm text-gray-300">
+      <div class="flex items-center gap-2"><span class="inline-block w-4 h-4 rounded" style="background: linear-gradient(to bottom, #00008B, #00BFFF);"></span> Baja probabilidad</div>
+      <div class="flex items-center gap-2"><span class="inline-block w-4 h-4 rounded" style="background: linear-gradient(to bottom, #00BFFF, #7FFF00);"></span> Media-baja</div>
+      <div class="flex items-center gap-2"><span class="inline-block w-4 h-4 rounded" style="background: linear-gradient(to bottom, #7FFF00, #FFD700);"></span> Media</div>
+      <div class="flex items-center gap-2"><span class="inline-block w-4 h-4 rounded" style="background: linear-gradient(to bottom, #FFD700, #FF4500);"></span> Media-alta</div>
+      <div class="flex items-center gap-2"><span class="inline-block w-4 h-4 rounded" style="background: linear-gradient(to bottom, #FF4500, #DC0000);"></span> Alta probabilidad</div>
+    </div>
   `;
 
   let index;

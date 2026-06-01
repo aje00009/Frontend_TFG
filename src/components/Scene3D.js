@@ -100,7 +100,7 @@ export async function initScene3D(containerId, initialModel, options = {}) {
       </div>
       <!-- Leyenda del heatmap -->
       <div id="scene3d-legend" class="absolute bottom-6 left-6 z-10 bg-black/60 backdrop-blur px-3 py-2 rounded-lg border border-white/10 pointer-events-none hidden">
-        <div class="text-[10px] text-gray-400 font-medium text-center mb-1">Modelo</div>
+        <div class="text-[10px] text-gray-400 font-medium text-center mb-1">Probabilidad</div>
         <div class="flex gap-1">
           <canvas id="scene3d-legend-canvas" width="20" height="150" class="rounded border border-white/10"></canvas>
           <div class="flex flex-col justify-between text-[10px] text-gray-300 font-mono py-0.5">
@@ -139,6 +139,8 @@ export async function initScene3D(containerId, initialModel, options = {}) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 0.6;
   container.querySelector('#three-canvas').appendChild(renderer.domElement);
 
   const controls = new OrbitControls(camera, renderer.domElement);
@@ -147,11 +149,11 @@ export async function initScene3D(containerId, initialModel, options = {}) {
   controls.screenSpacePanning = false;
 
   // === LUCES ===
-  scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-  const sun = new THREE.DirectionalLight(0xfff5e6, 1.6);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.25));
+  const sun = new THREE.DirectionalLight(0xfff5e6, 0.7);
   sun.position.set(200, 400, 150);
   scene.add(sun);
-  scene.add(new THREE.DirectionalLight(0xcceeff, 0.3).position.set(-150, 100, -150));
+  scene.add(new THREE.DirectionalLight(0xcceeff, 0.15).position.set(-150, 100, -150));
 
   const worldGroup = new THREE.Group();
   scene.add(worldGroup);
@@ -274,7 +276,7 @@ export async function initScene3D(containerId, initialModel, options = {}) {
         uTex1: { value: tex1 || placeholderTex },
         uTex2: { value: tex2 || placeholderTex },
         uMixRatio: { value: 0.0 },
-        uOpacity: { value: 0.75 },
+        uOpacity: { value: 0.7 },
       },
       vertexShader: `
         varying vec2 vUv;
@@ -293,6 +295,9 @@ export async function initScene3D(containerId, initialModel, options = {}) {
           vec4 c1 = texture2D(uTex1, vUv);
           vec4 c2 = texture2D(uTex2, vUv);
           vec4 col = mix(c1, c2, uMixRatio);
+          // Atenuación del brillo en el visor 3D:
+          // Curva suave que comprime los altos sin oscurecer los medios/bajos
+          col.rgb = pow(col.rgb, vec3(1.25)) * 0.8;
           col.a *= uOpacity;
           if (col.a < 0.01) discard;
           gl_FragColor = col;
@@ -758,7 +763,7 @@ export async function initScene3D(containerId, initialModel, options = {}) {
 
     if (type === 'solid') {
       terrainMesh.material.map = null;
-      terrainMesh.material.color.setHex(0x888888);
+      terrainMesh.material.color.setHex(0x444444);
       terrainMesh.material.needsUpdate = true;
       return;
     }
@@ -1212,6 +1217,12 @@ export async function initScene3D(containerId, initialModel, options = {}) {
     if (terrainMesh) {
       const terrainClone = terrainMesh.clone();
       if (currentHeatmapTexture) {
+        // Invertir UVs en Y para que la textura se oriente correctamente (igual que en el heatmapMesh)
+        const uvs = terrainClone.geometry.attributes.uv.array;
+        for (let i = 1; i < uvs.length; i += 2) {
+          uvs[i] = 1 - uvs[i];
+        }
+        terrainClone.geometry.attributes.uv.needsUpdate = true;
         terrainClone.material = new THREE.MeshStandardMaterial({
           map: currentHeatmapTexture,
           roughness: 0.9,

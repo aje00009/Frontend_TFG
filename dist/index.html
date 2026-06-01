@@ -7,8 +7,8 @@
     <title>TerraPredict — Predicción de Distribución de Especies</title>
     <!-- Cesium assets deben cargarse ANTES de importar el módulo JS -->
     <script>window.CESIUM_BASE_URL = 'https://unpkg.com/cesium@1.118.0/Build/Cesium/';</script>
-    <script type="module" crossorigin src="./assets/index-DoZZ1xDl.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-fx7ucIjp.css">
+    <script type="module" crossorigin src="./assets/index-6Wn3ImwE.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-DVPoK8i5.css">
   </head>
   <body class="bg-terra-bg text-stone-200 antialiased">
     <div id="app">
@@ -51,7 +51,7 @@
       <!-- ========================================== -->
       <!-- HERO                                       -->
       <!-- ========================================== -->
-      <section id="top" class="relative min-h-[60vh] flex items-center justify-center pt-16 overflow-hidden">
+      <section id="top" class="relative h-screen flex items-center justify-center pt-16 overflow-hidden">
         <div id="hero" class="relative w-full h-full flex items-center justify-center"></div>
       </section>
 
@@ -80,8 +80,29 @@
           </div>
         </div>
 
+        <!-- Panel explicativo SSP (colapsable) -->
+        <div class="mb-4">
+          <button id="ssp-info-toggle" class="w-full flex items-center justify-between px-5 py-3 bg-terra-surface rounded-xl border border-terra-border hover:border-terra-accent/40 transition-all text-left">
+            <div class="flex items-center gap-3">
+              <svg class="w-5 h-5 text-terra-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              <span class="text-sm font-medium text-stone-200">¿Qué representan los escenarios climáticos?</span>
+            </div>
+            <svg id="ssp-chevron" class="w-4 h-4 text-stone-500 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+          </button>
+          <div id="ssp-info-panel" class="hidden mt-2 px-5 py-4 bg-terra-surface rounded-xl border border-terra-border text-sm text-stone-400 leading-relaxed">
+            <p class="mb-3">Los escenarios climáticos que ves en esta plataforma se basan en los <strong class="text-stone-200">Shared Socioeconomic Pathways (SSP)</strong>, que describen posibles futuros según cómo evolucionen la sociedad, la economía y las políticas medioambientales a nivel mundial.</p>
+            <ul class="space-y-2 mb-3 list-disc list-inside">
+              <li><strong class="text-stone-200">SSP1-2.6 (Sostenibilidad):</strong> desarrollo sostenible, desigualdad reducida y transición rápida hacia energías limpias.</li>
+              <li><strong class="text-stone-200">SSP2-4.5 (Intermedio):</strong> evolución moderada, sin cambios drásticos en políticas ni en el modelo de desarrollo actual.</li>
+              <li><strong class="text-stone-200">SSP3-7.0 (Rivalidad regional):</strong> fragmentación geopolítica, baja cooperación internacional y uso intensivo de combustibles fósiles.</li>
+              <li><strong class="text-stone-200">SSP5-8.5 (Combustibles fósiles):</strong> crecimiento económico acelerado basado en combustibles fósiles, con escasa preocupación por el medio ambiente.</li>
+            </ul>
+            <p>Los periodos (2021-2040, 2041-2060, 2061-2080, 2081-2100) indican <strong class="text-stone-200">cuándo se proyectan esas condiciones</strong>. Por ejemplo, "SSP1-2.6 (2021-2040)" muestra el hábitat modelado para el periodo 2021-2040 bajo un escenario de sostenibilidad.</p>
+          </div>
+        </div>
+
         <!-- Contenedor del visor con altura fija y bordes redondeados -->
-        <div class="relative h-[80vh] md:h-[85vh] overflow-hidden rounded-2xl border border-terra-border shadow-2xl shadow-black/40">
+        <div class="relative h-[70vh] md:h-[75vh] overflow-hidden rounded-2xl border border-terra-border shadow-2xl shadow-black/40">
           
           <!-- Selector principal -->
           <div id="scenario-selector" class="absolute top-4 left-1/2 -translate-x-1/2 z-30"></div>
@@ -191,15 +212,10 @@
             <span class="text-white">Terra<span class="text-terra-accent">Predict</span></span>
           </div>
           <p class="text-stone-500 max-w-lg mx-auto mb-6">
-            Plataforma de predicción de distribución de especies bajo escenarios climáticos futuros. 
-            Proyecto GEU — Geo-Ecological Unit.
+            Plataforma de predicción de distribución de especies bajo escenarios climáticos futuros.
           </p>
           <div class="flex justify-center gap-6 text-sm text-stone-600">
             <span>© 2025 TerraPredict</span>
-            <span>·</span>
-            <span>GEU</span>
-            <span>·</span>
-            <span>Ciencia Abierta</span>
           </div>
         </div>
       </footer>

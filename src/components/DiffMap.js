@@ -77,12 +77,15 @@ export async function initDiffMap(containerId) {
     return 'text-gray-400';
   }
 
-  function tableHeader(title) {
+  function tableHeader(title, description) {
     return `
-      <div class="flex items-center gap-3 mb-3 mt-8">
-        <div class="h-px flex-1 bg-gray-600"></div>
-        <h3 class="text-sm font-semibold text-gray-300 uppercase tracking-wider whitespace-nowrap">${title}</h3>
-        <div class="h-px flex-1 bg-gray-600"></div>
+      <div class="mt-8">
+        <div class="flex items-center gap-3 mb-2">
+          <div class="h-px flex-1 bg-gray-600"></div>
+          <h3 class="text-sm font-semibold text-gray-300 uppercase tracking-wider whitespace-nowrap">${title}</h3>
+          <div class="h-px flex-1 bg-gray-600"></div>
+        </div>
+        <p class="text-xs text-stone-500 text-center mb-3 max-w-2xl mx-auto">${description}</p>
       </div>
     `;
   }
@@ -98,7 +101,7 @@ export async function initDiffMap(containerId) {
     const threshold = data.threshold ?? 0.5;
 
     // Tabla 1: Área por umbral
-    let html = tableHeader(`Área por umbral (${threshold})`);
+    let html = tableHeader(`Área por umbral (${threshold})`, 'Número de píxeles cuya probabilidad de presencia es igual o superior al umbral indicado. Representa el área donde el modelo considera probable encontrar la especie.');
     html += `<table class="w-full text-sm text-left border-collapse">
       <thead>
         <tr class="border-b border-gray-600 text-gray-400">
@@ -125,7 +128,7 @@ export async function initDiffMap(containerId) {
     html += `</tbody></table>`;
 
     // Tabla 2: Área continua ponderada
-    html += tableHeader('Área continua ponderada');
+    html += tableHeader('Área continua ponderada', 'Suma de todas las probabilidades de presencia de todos los píxeles, sin aplicar umbral. Cuenta tanto píxeles con alta como baja probabilidad, ponderando su contribución según el valor de probabilidad.');
     html += `<table class="w-full text-sm text-left border-collapse">
       <thead>
         <tr class="border-b border-gray-600 text-gray-400">
@@ -152,7 +155,7 @@ export async function initDiffMap(containerId) {
     html += `</tbody></table>`;
 
     // Tabla 3: Balance de hábitat continuo
-    html += tableHeader('Balance de hábitat continuo');
+    html += tableHeader('Balance de hábitat continuo', 'Comparación entre el escenario actual y cada escenario futuro. Muestra el área estimada de pérdida (rojo), ganancia (verde) y hábitat estable (gris), junto con el cambio neto porcentual.');
     html += `<table class="w-full text-sm text-left border-collapse">
       <thead>
         <tr class="border-b border-gray-600 text-gray-400">

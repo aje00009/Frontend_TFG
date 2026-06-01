@@ -1,12 +1,41 @@
 import Plotly from 'plotly.js-dist-min';
 
+/**
+ * Interpola un color del colormap GEU según t ∈ [0, 1]
+ */
+function geuColor(t) {
+  const stops = [
+    { t: 0.00, r: 0,   g: 0,   b: 139 }, // azul oscuro
+    { t: 0.05, r: 0,   g: 191, b: 255 }, // cian
+    { t: 0.15, r: 127, g: 255, b: 0   }, // verde
+    { t: 0.30, r: 255, g: 215, b: 0   }, // amarillo
+    { t: 0.60, r: 255, g: 69,  b: 0   }, // naranja-rojizo
+    { t: 1.00, r: 220, g: 0,   b: 0   }, // rojo intenso
+  ];
+  let lower = stops[0];
+  let upper = stops[stops.length - 1];
+  for (let i = 0; i < stops.length - 1; i++) {
+    if (t >= stops[i].t && t <= stops[i + 1].t) {
+      lower = stops[i];
+      upper = stops[i + 1];
+      break;
+    }
+  }
+  const range = upper.t - lower.t;
+  const frac = range === 0 ? 0 : (t - lower.t) / range;
+  const r = Math.round(lower.r + (upper.r - lower.r) * frac);
+  const g = Math.round(lower.g + (upper.g - lower.g) * frac);
+  const b = Math.round(lower.b + (upper.b - lower.b) * frac);
+  return `rgb(${r},${g},${b})`;
+}
+
 export async function initProbabilityHistogram(containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
   container.innerHTML = `
     <h2 class="text-3xl font-bold mb-2 text-center">Histograma de Probabilidad</h2>
-    <p class="text-center text-gray-400 mb-8">Distribución de los valores de probabilidad de presencia en el área de estudio.</p>
+    <p class="text-center text-gray-400 mb-6 max-w-2xl mx-auto">Distribución de los valores de probabilidad de presencia en el área de estudio. Cada barra representa la frecuencia de píxeles dentro de un rango de probabilidad, usando la misma escala de colores que el mapa.</p>
     <div id="hist-plot" class="w-full h-[450px] rounded-xl overflow-hidden"></div>
     <div id="hist-info" class="mt-6 text-center text-gray-400 text-sm hidden">
       No se encontraron datos de probabilidad para el escenario seleccionado.
@@ -62,14 +91,7 @@ export async function initProbabilityHistogram(containerId) {
         type: 'bar',
         width: 0.08,
         marker: {
-          color: bins.map((_, i) => {
-            const center = (i + 0.5) / 10;
-            // Color gradient from blue (low) to red (high) using GEU-like colors
-            if (center < 0.3) return '#3b82f6'; // blue
-            if (center < 0.5) return '#a855f7'; // purple
-            if (center < 0.7) return '#f97316'; // orange
-            return '#ef4444'; // red
-          }),
+          color: bins.map((_, i) => geuColor((i + 0.5) / 10)),
           line: { color: 'rgba(255,255,255,0.1)', width: 1 },
         },
         hovertemplate: 'Probabilidad: %{x:.1f}<br>Píxeles: %{y}<extra></extra>',

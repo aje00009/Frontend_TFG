@@ -65,7 +65,7 @@ export async function initMapViewer(containerId) {
   legendDiv.className = 'absolute left-6 z-10 bg-black/60 backdrop-blur px-3 py-2 rounded-lg border border-white/10 pointer-events-none flex flex-col items-center gap-1';
   legendDiv.style.bottom = '200px';
   legendDiv.innerHTML = `
-    <div class="text-[10px] text-gray-400 font-medium">Modelo</div>
+    <div class="text-[10px] text-gray-400 font-medium">Probabilidad</div>
     <div class="flex gap-1">
       <canvas id="map-legend-canvas" width="20" height="150" class="rounded border border-white/10"></canvas>
       <div class="flex flex-col justify-between text-[10px] text-gray-300 font-mono py-0.5">
@@ -191,7 +191,7 @@ export async function initMapViewer(containerId) {
     <div class="bg-geu-panel/90 backdrop-blur px-4 py-2 rounded-xl border border-white/10 shadow-xl flex items-center gap-2">
       <label class="text-xs text-gray-400 font-medium">Mapa base:</label>
       <select id="base-layer-select" class="geu-select text-xs py-1 min-w-[160px]">
-        ${Object.entries(BASE_LAYERS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('')}
+        ${Object.entries(BASE_LAYERS).map(([k, v]) => `<option value="${k}" ${k === 'esri-satellite' ? 'selected' : ''}>${v.label}</option>`).join('')}
       </select>
     </div>
     <div class="bg-geu-panel/90 backdrop-blur px-4 py-2 rounded-xl border border-white/10 shadow-xl flex items-center gap-2">
