@@ -1,7 +1,10 @@
 import * as Cesium from 'cesium';
 import { processHeatmapAdvanced } from '../utils/processHeatmap.js';
+import { loadCsv } from '../utils/dataLoader.js';
+import { loadSpeciesIndex, getOccurrencesPath } from '../utils/config.js';
 import {
   loadImageToCanvas,
+  getFlippedImageUrl,
   samplePixel,
   pixelCoordsFromLonLat,
   formatCoords,
@@ -23,9 +26,10 @@ const BASE_LAYERS = {
   'cesium-default': { label: 'Cesium Ion', create: () => null },
 };
 
-function createHeatmapMaterial(imageUrl, globalAlpha) {
+async function createHeatmapMaterial(imageUrl, globalAlpha) {
+  const flippedUrl = await getFlippedImageUrl(imageUrl);
   return new Cesium.ImageMaterialProperty({
-    image: imageUrl,
+    image: flippedUrl,
     transparent: true,
     color: new Cesium.Color(1, 1, 1, globalAlpha),
   });
@@ -34,6 +38,13 @@ function createHeatmapMaterial(imageUrl, globalAlpha) {
 export async function initMapViewer(containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
+
+  let index;
+  try {
+    index = await loadSpeciesIndex();
+  } catch (err) {
+    console.error('[MapViewer] Error cargando catálogo:', err);
+  }
 
   Cesium.Ion.defaultAccessToken = '';
 
@@ -59,6 +70,8 @@ export async function initMapViewer(containerId) {
   let currentPngUrl = null;
   let currentHeatmapBBox = null;
   let currentImgData = null;
+  let occurrenceEntities = [];
+  let showOccurrences = true;
 
   // === LEYENDA ===
   const legendDiv = document.createElement('div');
@@ -199,6 +212,10 @@ export async function initMapViewer(containerId) {
       <input id="heatmap-alpha" type="range" min="0.1" max="1" step="0.05" value="0.55" class="w-32 accent-teal-400">
       <span id="heatmap-alpha-val" class="text-xs text-teal-400 font-mono w-8 text-right">55%</span>
     </div>
+    <div class="bg-geu-panel/90 backdrop-blur px-4 py-2 rounded-xl border border-white/10 shadow-xl flex items-center gap-2">
+      <input id="show-occurrences" type="checkbox" checked class="w-4 h-4 accent-geu-accent rounded border-white/30">
+      <label for="show-occurrences" class="text-xs text-gray-300 font-medium">Mostrar ocurrencias</label>
+    </div>
   `;
   container.appendChild(controlsDiv);
 
@@ -211,10 +228,10 @@ export async function initMapViewer(containerId) {
     }
   }
 
-  function updateHeatmapAlpha(val) {
+    async function updateHeatmapAlpha(val) {
     const a = parseFloat(val);
     if (heatmapEntity && currentPngUrl) {
-      heatmapEntity.rectangle.material = createHeatmapMaterial(currentPngUrl, a);
+      heatmapEntity.rectangle.material = await createHeatmapMaterial(currentPngUrl, a);
     }
     const label = document.getElementById('heatmap-alpha-val');
     if (label) label.textContent = Math.round(a * 100) + '%';
@@ -222,10 +239,55 @@ export async function initMapViewer(containerId) {
 
   controlsDiv.querySelector('#base-layer-select').addEventListener('change', (e) => setBaseLayer(e.target.value));
   controlsDiv.querySelector('#heatmap-alpha').addEventListener('input', (e) => updateHeatmapAlpha(e.target.value));
+  controlsDiv.querySelector('#show-occurrences').addEventListener('change', (e) => {
+    showOccurrences = e.target.checked;
+    occurrenceEntities.forEach((entity) => {
+      entity.show = showOccurrences;
+    });
+  });
   setBaseLayer('esri-satellite');
 
+  async function loadOccurrences(model) {
+    // Limpiar ocurrencias anteriores
+    occurrenceEntities.forEach((entity) => viewer.entities.remove(entity));
+    occurrenceEntities = [];
+
+    if (!model || model.scenario.id !== 'actual' || !index) return;
+
+    const csvPath = getOccurrencesPath(index, model.species.id, model.algorithm.id);
+    const rows = await loadCsv(csvPath);
+    if (!rows || rows.length === 0) return;
+
+    const lonKey =
+      Object.keys(rows[0]).find((k) => k.toLowerCase().includes('lon')) || 'longitude';
+    const latKey =
+      Object.keys(rows[0]).find((k) => k.toLowerCase().includes('lat')) || 'latitude';
+
+    rows.forEach((row) => {
+      const lon = parseFloat(row[lonKey]);
+      const lat = parseFloat(row[latKey]);
+      if (Number.isNaN(lon) || Number.isNaN(lat)) return;
+
+      const entity = viewer.entities.add({
+        position: Cesium.Cartesian3.fromDegrees(lon, lat),
+        point: {
+          pixelSize: 10,
+          color: Cesium.Color.fromCssColorString('#fbbf24'),
+          outlineColor: Cesium.Color.BLACK,
+          outlineWidth: 1,
+          heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        },
+        description: `Ocurrencia de ${model.species.label}<br>Lat: ${lat.toFixed(4)}, Lon: ${lon.toFixed(4)}`,
+      });
+      entity.show = showOccurrences;
+      occurrenceEntities.push(entity);
+    });
+  }
+
   window.addEventListener('model-changed', async (e) => {
-    const { paths } = e.detail;
+    const model = e.detail;
+    const { paths } = model;
     console.log('[MapViewer] model-changed', paths);
 
     if (heatmapEntity) {
@@ -233,6 +295,9 @@ export async function initMapViewer(containerId) {
       heatmapEntity = null;
     }
     currentPngUrl = null;
+
+    // Cargar/ocultar ocurrencias según escenario
+    await loadOccurrences(model);
 
     if (!paths.png) {
       console.warn('[MapViewer] No hay paths.png');
@@ -274,14 +339,14 @@ export async function initMapViewer(containerId) {
       heatmapEntity = viewer.entities.add({
         rectangle: {
           coordinates: rectangle,
-          material: createHeatmapMaterial(paths.png, alpha),
+          material: await createHeatmapMaterial(paths.png, alpha),
           classificationType: Cesium.ClassificationType.BOTH,
           clampToGround: true,
         }
       });
 
-      // Precargar imagen para picking y regenerar leyenda
-      currentImgData = await loadImageToCanvas(currentPngUrl);
+      // Precargar imagen volteada para picking (misma orientación que Cesium muestra)
+      currentImgData = await loadImageToCanvas(currentPngUrl, { flipY: true });
       if (currentImgData) currentImgData.url = currentPngUrl;
       await updateLegend();
 

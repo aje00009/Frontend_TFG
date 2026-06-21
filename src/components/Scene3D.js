@@ -2,9 +2,11 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { loadDEM, createTerrainGeometry, lonLatToMeters } from '../utils/terrainLoader.js';
 import { loadPointCloud, pointsToGeometry } from '../utils/pointCloudLoader.js';
+import { loadCsv } from '../utils/dataLoader.js';
 import {
   loadSpeciesIndex,
   getPaths,
+  getOccurrencesPath,
   getPointCloudIndexUrl,
   getPeriods,
   getAlgorithm,
@@ -79,6 +81,10 @@ export async function initScene3D(containerId, initialModel, options = {}) {
           <button id="ts-toggle" class="text-xs text-white font-medium bg-geu-accent/20 hover:bg-geu-accent/40 px-3 py-1.5 rounded transition-colors">
             ▶ Serie temporal
           </button>
+        </div>
+        <div class="bg-black/60 backdrop-blur px-3 py-2 rounded-lg border border-white/10 flex items-center gap-2">
+          <input id="show-occurrences-3d" type="checkbox" checked class="w-4 h-4 accent-geu-accent rounded border-white/30">
+          <label for="show-occurrences-3d" class="text-xs text-gray-300 font-medium">Mostrar ocurrencias</label>
         </div>
       </div>
       <!-- Panel de animación serie temporal -->
@@ -161,6 +167,8 @@ export async function initScene3D(containerId, initialModel, options = {}) {
   let terrainMesh = null;
   let heatmapMesh = null;
   let pointCloudMesh = null;
+  let occurrenceGroup = null;
+  let showOccurrences = true;
   let currentBBox = null;
   let refLat = 42.5;
   let terrainMinElevation = 0;
@@ -365,6 +373,50 @@ export async function initScene3D(containerId, initialModel, options = {}) {
       mat.uniforms.uTex2.value = placeholderTex;
     }
     return texture;
+  }
+
+  // === CARGAR OCURRENCIAS (solo escenario actual) ===
+  async function loadOccurrences3D(model) {
+    if (occurrenceGroup) {
+      worldGroup.remove(occurrenceGroup);
+      occurrenceGroup.traverse((child) => {
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) child.material.dispose();
+      });
+      occurrenceGroup = null;
+    }
+
+    if (!model || model.scenario.id !== 'actual' || !index || !currentBBox) return;
+
+    const csvPath = getOccurrencesPath(index, model.species.id, model.algorithm.id);
+    const rows = await loadCsv(csvPath);
+    if (!rows || rows.length === 0) return;
+
+    const lonKey =
+      Object.keys(rows[0]).find((k) => k.toLowerCase().includes('lon')) || 'longitude';
+    const latKey =
+      Object.keys(rows[0]).find((k) => k.toLowerCase().includes('lat')) || 'latitude';
+
+    occurrenceGroup = new THREE.Group();
+
+    rows.forEach((row) => {
+      const lon = parseFloat(row[lonKey]);
+      const lat = parseFloat(row[latKey]);
+      if (Number.isNaN(lon) || Number.isNaN(lat)) return;
+
+      const m = lonLatToMeters(lon, lat, refLat);
+      const geometry = new THREE.ConeGeometry(150, 400, 16);
+      geometry.translate(0, 200, 0);
+      const material = new THREE.MeshLambertMaterial({ color: 0xfbbf24 });
+      const marker = new THREE.Mesh(geometry, material);
+      marker.position.set(m.x, 0, m.y);
+      marker.rotation.x = Math.PI;
+      marker.castShadow = true;
+      occurrenceGroup.add(marker);
+    });
+
+    occurrenceGroup.visible = showOccurrences;
+    worldGroup.add(occurrenceGroup);
   }
 
   // === CARGAR NUBE DE PUNTOS ===
@@ -1045,6 +1097,9 @@ export async function initScene3D(containerId, initialModel, options = {}) {
       await applyTerrainTexture(currentTextureType, model);
     }
 
+    // Cargar/ocultar marcadores de ocurrencias
+    await loadOccurrences3D(model);
+
     // Si el panel de animación está activo, sincronizar SSP y mostrar timeline
     if (animPanelVisible) {
       await initAnimationForModel(model);
@@ -1098,6 +1153,15 @@ export async function initScene3D(containerId, initialModel, options = {}) {
         if (type === 'heatmap') panel.classList.remove('hidden');
         else { panel.classList.add('hidden'); stopAnimation(); }
       }
+    });
+  }
+
+  // Mostrar/ocultar ocurrencias en 3D
+  const showOccurrencesCheck = container.querySelector('#show-occurrences-3d');
+  if (showOccurrencesCheck) {
+    showOccurrencesCheck.addEventListener('change', (e) => {
+      showOccurrences = e.target.checked;
+      if (occurrenceGroup) occurrenceGroup.visible = showOccurrences;
     });
   }
 

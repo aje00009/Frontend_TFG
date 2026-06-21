@@ -130,6 +130,16 @@ export function getDiffTablesPath(index, speciesId, algoId, periodId) {
 }
 
 /**
+ * Ruta del CSV de ocurrencias (puntos de presencia) de una especie+algoritmo.
+ * Formato esperado: longitude,latitude[,elevation]
+ */
+export function getOccurrencesPath(index, speciesId, algoId) {
+  const algo = getAlgorithm(index, speciesId, algoId);
+  const prefix = algo?.prefix || '';
+  return `./data/species/${speciesId}/${algoId}/current/${prefix}_Occurrences.csv`;
+}
+
+/**
  * Ruta base para los point clouds de una especie+algoritmo.
  */
 export function getPointCloudBase(speciesId, algoId) {

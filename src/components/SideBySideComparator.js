@@ -1,10 +1,12 @@
 import * as Cesium from 'cesium';
 import { loadSpeciesIndex, getPaths, getScenarios } from '../utils/config.js';
+import { getFlippedImageUrl } from '../utils/pickerUtils.js';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 
-function createHeatmapMaterialCesium(imageUrl, alpha) {
+async function createHeatmapMaterialCesium(imageUrl, alpha) {
+  const flippedUrl = await getFlippedImageUrl(imageUrl);
   return new Cesium.ImageMaterialProperty({
-    image: imageUrl,
+    image: flippedUrl,
     transparent: true,
     color: new Cesium.Color(1, 1, 1, alpha),
   });
@@ -70,7 +72,7 @@ async function loadHeatmap2D(viewer, paths, alpha = 0.8) {
     id: 'heatmap-overlay',
     rectangle: {
       coordinates: rectangle,
-      material: createHeatmapMaterialCesium(paths.png, alpha),
+      material: await createHeatmapMaterialCesium(paths.png, alpha),
       classificationType: Cesium.ClassificationType.BOTH,
       clampToGround: true,
     }
@@ -79,7 +81,7 @@ async function loadHeatmap2D(viewer, paths, alpha = 0.8) {
   viewer.camera.flyTo({ destination: rectangle, duration: 0 });
 }
 
-function updateHeatmapAlpha2D(viewer, alpha) {
+async function updateHeatmapAlpha2D(viewer, alpha) {
   if (!viewer) return;
   const entity = viewer.entities.getById('heatmap-overlay');
   if (!entity || !entity.rectangle) return;
@@ -92,7 +94,7 @@ function updateHeatmapAlpha2D(viewer, alpha) {
     imageUrl = currentMat.image.getValue();
   }
   if (imageUrl) {
-    entity.rectangle.material = createHeatmapMaterialCesium(imageUrl, alpha);
+    entity.rectangle.material = await createHeatmapMaterialCesium(imageUrl, alpha);
   }
 }
 

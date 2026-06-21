@@ -6,12 +6,15 @@ const imageCache = new Map();
 
 /**
  * Carga una imagen en un canvas offscreen y cachea el resultado.
+ * Si flipY es true, dibuja la imagen volteada verticalmente. Esto es útil
+ * para Cesium, que mapea las coordenadas V de textura en sentido contrario
+ * al origen habitual de las imágenes PNG (origen arriba-izquierda = NW).
  */
-export async function loadImageToCanvas(url) {
+export async function loadImageToCanvas(url, { flipY = false } = {}) {
   if (!url) return null;
-  if (imageCache.has(url)) {
-    const cached = imageCache.get(url);
-    return cached;
+  const cacheKey = `${url}|flipY:${flipY}`;
+  if (imageCache.has(cacheKey)) {
+    return imageCache.get(cacheKey);
   }
 
   return new Promise((resolve) => {
@@ -22,17 +25,31 @@ export async function loadImageToCanvas(url) {
       canvas.width = img.width;
       canvas.height = img.height;
       const ctx = canvas.getContext('2d');
+      if (flipY) {
+        ctx.translate(0, img.height);
+        ctx.scale(1, -1);
+      }
       ctx.drawImage(img, 0, 0);
       const result = { canvas, ctx, width: img.width, height: img.height };
-      imageCache.set(url, result);
+      imageCache.set(cacheKey, result);
       resolve(result);
     };
     img.onerror = () => {
-      imageCache.set(url, null);
+      imageCache.set(cacheKey, null);
       resolve(null);
     };
     img.src = url;
   });
+}
+
+/**
+ * Carga una imagen, la voltea verticalmente y devuelve una URL de datos (data URL).
+ * Útil para corregir la orientación de texturas en Cesium.
+ */
+export async function getFlippedImageUrl(url) {
+  const data = await loadImageToCanvas(url, { flipY: true });
+  if (!data) return url;
+  return data.canvas.toDataURL('image/png');
 }
 
 /**
