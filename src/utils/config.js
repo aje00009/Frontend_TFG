@@ -3,7 +3,7 @@
  * Lee el catálogo desde /data/species/index.json
  */
 
-const INDEX_URL = '/data/species/index.json';
+const INDEX_URL = './data/species/index.json';
 
 let cachedIndex = null;
 
@@ -143,7 +143,7 @@ export function getOccurrencesPath(index, speciesId, algoId) {
  * Ruta base para los point clouds de una especie+algoritmo.
  */
 export function getPointCloudBase(speciesId, algoId) {
-  return `/data/pointcloud/${speciesId}/${algoId}`;
+  return `./data/pointcloud/${speciesId}/${algoId}`;
 }
 
 /**
