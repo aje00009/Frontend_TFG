@@ -38,30 +38,32 @@ export async function initScenarioSelector(onChange) {
 
   function renderOptions() {
     container.innerHTML = `
-      <div class="flex flex-col sm:flex-row flex-wrap sm:flex-nowrap items-stretch sm:items-center gap-2 sm:gap-3 bg-geu-panel/90 backdrop-blur px-4 sm:px-5 py-3 rounded-2xl border border-white/10 shadow-2xl max-w-[92vw] sm:max-w-[95vw]">
-        <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 flex-1 min-w-0">
-          <label class="text-xs sm:text-sm text-gray-400 font-medium whitespace-nowrap">Especie:</label>
-          <select id="species-select" class="geu-select w-full sm:min-w-[140px] md:min-w-[180px]">
-            ${speciesList.map(s => `<option value="${s.id}" ${s.id === currentSpecies.id ? 'selected' : ''}>${s.label}</option>`).join('')}
-          </select>
-        </div>
-        <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 flex-1 min-w-0">
-          <label class="text-xs sm:text-sm text-gray-400 font-medium whitespace-nowrap">Algoritmo:</label>
-          <select id="algorithm-select" class="geu-select w-full sm:min-w-[120px] md:min-w-[160px]">
-            ${getAlgorithms(index, currentSpecies.id).map(a => `<option value="${a.id}" ${a.id === currentAlgo.id ? 'selected' : ''}>${a.label}</option>`).join('')}
-          </select>
-        </div>
-        <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 flex-1 min-w-0">
-          <label class="text-xs sm:text-sm text-gray-400 font-medium whitespace-nowrap">Período:</label>
-          <select id="period-select" class="geu-select w-full sm:min-w-[100px] md:min-w-[120px]">
-            ${periods.map(p => `<option value="${p.id}" ${p.id === currentPeriod.id ? 'selected' : ''}>${p.label}</option>`).join('')}
-          </select>
-        </div>
-        <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 flex-1 min-w-0">
-          <label class="text-xs sm:text-sm text-gray-400 font-medium whitespace-nowrap">Escenario:</label>
-          <select id="scenario-select" class="geu-select w-full sm:min-w-[180px] md:min-w-[260px]">
-            ${currentScenarios.map(s => `<option value="${s.id}" ${s.id === currentScenario.id ? 'selected' : ''}>${s.label}</option>`).join('')}
-          </select>
+      <div class="flex flex-col items-stretch gap-2 bg-geu-panel/90 backdrop-blur px-3 sm:px-4 py-3 rounded-2xl border border-white/10 shadow-2xl w-full max-w-full">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+          <div class="flex flex-col gap-1 min-w-0">
+            <label class="text-xs text-gray-400 font-medium whitespace-nowrap">Especie:</label>
+            <select id="species-select" class="geu-select w-full min-w-0">
+              ${speciesList.map(s => `<option value="${s.id}" ${s.id === currentSpecies.id ? 'selected' : ''}>${s.label}</option>`).join('')}
+            </select>
+          </div>
+          <div class="flex flex-col gap-1 min-w-0">
+            <label class="text-xs text-gray-400 font-medium whitespace-nowrap">Algoritmo:</label>
+            <select id="algorithm-select" class="geu-select w-full min-w-0">
+              ${getAlgorithms(index, currentSpecies.id).map(a => `<option value="${a.id}" ${a.id === currentAlgo.id ? 'selected' : ''}>${a.label}</option>`).join('')}
+            </select>
+          </div>
+          <div class="flex flex-col gap-1 min-w-0">
+            <label class="text-xs text-gray-400 font-medium whitespace-nowrap">Período:</label>
+            <select id="period-select" class="geu-select w-full min-w-0">
+              ${periods.map(p => `<option value="${p.id}" ${p.id === currentPeriod.id ? 'selected' : ''}>${p.label}</option>`).join('')}
+            </select>
+          </div>
+          <div class="flex flex-col gap-1 min-w-0">
+            <label class="text-xs text-gray-400 font-medium whitespace-nowrap">Escenario:</label>
+            <select id="scenario-select" class="geu-select w-full min-w-0">
+              ${currentScenarios.map(s => `<option value="${s.id}" ${s.id === currentScenario.id ? 'selected' : ''}>${s.label}</option>`).join('')}
+            </select>
+          </div>
         </div>
       </div>
     `;
