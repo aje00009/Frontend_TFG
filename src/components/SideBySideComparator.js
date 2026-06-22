@@ -144,16 +144,16 @@ export async function initSideBySideComparator(containerId, initialModel) {
         <span id="comp-2d-alpha-value" class="text-xs text-gray-300 font-mono w-8 text-right">0.8</span>
       </div>
     </div>
-    <div class="flex gap-2 h-[600px]">
-      <div class="w-1/2 relative rounded-xl overflow-hidden border border-white/10">
-        <div class="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-black/60 backdrop-blur px-3 py-1.5 rounded-lg border border-white/10 flex items-center gap-2">
-          <select id="comp-2d-left-scenario" class="geu-select text-xs py-1 min-w-[280px]"></select>
+    <div class="flex flex-col md:flex-row gap-2 h-auto md:h-[600px]">
+      <div class="w-full md:w-1/2 h-[400px] md:h-full relative rounded-xl overflow-hidden border border-white/10">
+        <div class="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-black/60 backdrop-blur px-3 py-1.5 rounded-lg border border-white/10 flex items-center gap-2 max-w-[90%]">
+          <select id="comp-2d-left-scenario" class="geu-select text-xs py-1 min-w-0 w-[220px] sm:w-[280px]"></select>
         </div>
         <div id="comp-2d-left-map" class="w-full h-full"></div>
       </div>
-      <div class="w-1/2 relative rounded-xl overflow-hidden border border-white/10">
-        <div class="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-black/60 backdrop-blur px-3 py-1.5 rounded-lg border border-white/10 flex items-center gap-2">
-          <select id="comp-2d-right-scenario" class="geu-select text-xs py-1 min-w-[280px]"></select>
+      <div class="w-full md:w-1/2 h-[400px] md:h-full relative rounded-xl overflow-hidden border border-white/10">
+        <div class="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-black/60 backdrop-blur px-3 py-1.5 rounded-lg border border-white/10 flex items-center gap-2 max-w-[90%]">
+          <select id="comp-2d-right-scenario" class="geu-select text-xs py-1 min-w-0 w-[220px] sm:w-[280px]"></select>
         </div>
         <div id="comp-2d-right-map" class="w-full h-full"></div>
       </div>

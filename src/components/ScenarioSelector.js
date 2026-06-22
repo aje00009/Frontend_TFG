@@ -38,28 +38,28 @@ export async function initScenarioSelector(onChange) {
 
   function renderOptions() {
     container.innerHTML = `
-      <div class="flex flex-nowrap items-center gap-3 bg-geu-panel/90 backdrop-blur px-5 py-3 rounded-2xl border border-white/10 shadow-2xl overflow-x-auto max-w-[95vw]">
-        <div class="flex items-center gap-2">
-          <label class="text-sm text-gray-400 font-medium">Especie:</label>
-          <select id="species-select" class="geu-select min-w-[180px]">
+      <div class="flex flex-col sm:flex-row flex-wrap sm:flex-nowrap items-stretch sm:items-center gap-2 sm:gap-3 bg-geu-panel/90 backdrop-blur px-4 sm:px-5 py-3 rounded-2xl border border-white/10 shadow-2xl max-w-[92vw] sm:max-w-[95vw]">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 flex-1 min-w-0">
+          <label class="text-xs sm:text-sm text-gray-400 font-medium whitespace-nowrap">Especie:</label>
+          <select id="species-select" class="geu-select w-full sm:min-w-[140px] md:min-w-[180px]">
             ${speciesList.map(s => `<option value="${s.id}" ${s.id === currentSpecies.id ? 'selected' : ''}>${s.label}</option>`).join('')}
           </select>
         </div>
-        <div class="flex items-center gap-2">
-          <label class="text-sm text-gray-400 font-medium">Algoritmo:</label>
-          <select id="algorithm-select" class="geu-select min-w-[160px]">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 flex-1 min-w-0">
+          <label class="text-xs sm:text-sm text-gray-400 font-medium whitespace-nowrap">Algoritmo:</label>
+          <select id="algorithm-select" class="geu-select w-full sm:min-w-[120px] md:min-w-[160px]">
             ${getAlgorithms(index, currentSpecies.id).map(a => `<option value="${a.id}" ${a.id === currentAlgo.id ? 'selected' : ''}>${a.label}</option>`).join('')}
           </select>
         </div>
-        <div class="flex items-center gap-2">
-          <label class="text-sm text-gray-400 font-medium">Período:</label>
-          <select id="period-select" class="geu-select min-w-[120px]">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 flex-1 min-w-0">
+          <label class="text-xs sm:text-sm text-gray-400 font-medium whitespace-nowrap">Período:</label>
+          <select id="period-select" class="geu-select w-full sm:min-w-[100px] md:min-w-[120px]">
             ${periods.map(p => `<option value="${p.id}" ${p.id === currentPeriod.id ? 'selected' : ''}>${p.label}</option>`).join('')}
           </select>
         </div>
-        <div class="flex items-center gap-2">
-          <label class="text-sm text-gray-400 font-medium">Escenario:</label>
-          <select id="scenario-select" class="geu-select min-w-[260px]">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 flex-1 min-w-0">
+          <label class="text-xs sm:text-sm text-gray-400 font-medium whitespace-nowrap">Escenario:</label>
+          <select id="scenario-select" class="geu-select w-full sm:min-w-[180px] md:min-w-[260px]">
             ${currentScenarios.map(s => `<option value="${s.id}" ${s.id === currentScenario.id ? 'selected' : ''}>${s.label}</option>`).join('')}
           </select>
         </div>

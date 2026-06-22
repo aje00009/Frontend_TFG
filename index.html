@@ -8,7 +8,7 @@
     <!-- Cesium assets deben cargarse ANTES de importar el módulo JS -->
     <script>window.CESIUM_BASE_URL = 'https://unpkg.com/cesium@1.118.0/Build/Cesium/';</script>
   </head>
-  <body class="bg-terra-bg text-stone-200 antialiased">
+  <body class="bg-terra-bg text-stone-200 antialiased overflow-x-hidden">
     <div id="app">
       
       <!-- ========================================== -->
@@ -63,12 +63,12 @@
         </header>
 
         <!-- Barra de herramientas encima del visor -->
-        <div class="flex items-center justify-between mb-3 px-1">
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between mb-3 px-1 gap-2">
           <div id="viewer-mode-toggle" class="flex gap-2 bg-terra-surface/80 backdrop-blur-md rounded-xl p-1 border border-terra-border">
-            <button id="mode-btn-2d" class="px-4 py-2 rounded-lg text-sm font-medium bg-terra-accent text-terra-bg shadow-sm transition-all">2D</button>
-            <button id="mode-btn-3d" class="px-4 py-2 rounded-lg text-sm font-medium text-stone-300 hover:text-white hover:bg-white/5 transition-all">3D</button>
+            <button id="mode-btn-2d" class="flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-medium bg-terra-accent text-terra-bg shadow-sm transition-all">2D</button>
+            <button id="mode-btn-3d" class="flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-medium text-stone-300 hover:text-white hover:bg-white/5 transition-all">3D</button>
           </div>
-          <div class="flex gap-2">
+          <div class="flex gap-2 justify-end">
             <button id="btn-export-png" class="terra-btn-outline text-sm flex items-center gap-1.5" title="Exportar imagen">
               <span>📷</span> PNG
             </button>
@@ -176,12 +176,12 @@
           </div>
 
           <!-- Comparador Lado a Lado -->
-          <div class="terra-card reveal min-h-[520px] flex flex-col">
+          <div class="terra-card reveal min-h-[520px] flex flex-col overflow-hidden">
             <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
               <svg class="w-5 h-5 text-terra-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
               Comparador Lado a Lado
             </h3>
-            <div id="comparator" class="flex-1"></div>
+            <div id="comparator" class="flex-1 overflow-hidden"></div>
           </div>
         </div>
       </section>

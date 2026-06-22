@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
-const META_URL = '/data/terrain/terrain.json';
-const BIN_URL = '/data/terrain/terrain.bin';
+const META_URL = './data/terrain/terrain.json';
+const BIN_URL = './data/terrain/terrain.bin';
 
 /**
  * Carga el DEM pre-procesado (terrain.json + terrain.bin).
