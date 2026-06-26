@@ -26,3 +26,4 @@ dist-ssr
 # Datos pesados: se sirven desde Cloudflare R2, no desde git
 /public/web/data/
 /public/data/
+/large-assets/
