@@ -1,20 +1,21 @@
 import * as THREE from 'three';
 
-const META_URL = './data/terrain/terrain.json';
-const BIN_URL = './data/terrain/terrain.bin';
-
 /**
- * Carga el DEM pre-procesado (terrain.json + terrain.bin).
+ * Carga un DEM pre-procesado (terrain.json + terrain.bin).
  * Mucho más rápido que leer el GeoTIFF completo en el navegador.
+ * @param {string} baseUrl - Carpeta base que contiene terrain.json y terrain.bin.
  */
-export async function loadDEM() {
+export async function loadDEM(baseUrl = './data/terrain') {
+  const metaUrl = `${baseUrl}/terrain.json`;
+  const binUrl = `${baseUrl}/terrain.bin`;
+
   const [metaRes, binRes] = await Promise.all([
-    fetch(META_URL),
-    fetch(BIN_URL),
+    fetch(metaUrl),
+    fetch(binUrl),
   ]);
 
-  if (!metaRes.ok) throw new Error(`Failed to fetch terrain.json: ${metaRes.status}`);
-  if (!binRes.ok) throw new Error(`Failed to fetch terrain.bin: ${binRes.status}`);
+  if (!metaRes.ok) throw new Error(`Failed to fetch ${metaUrl}: ${metaRes.status}`);
+  if (!binRes.ok) throw new Error(`Failed to fetch ${binUrl}: ${binRes.status}`);
 
   const meta = await metaRes.json();
   const arrayBuffer = await binRes.arrayBuffer();
@@ -76,12 +77,15 @@ export function createTerrainGeometry(demData, exaggeration = 1.5) {
     height - 1
   );
 
-  // Desplazar vértices en Z según elevación
+  // Desplazar vértices en Z según elevación.
+  // Three.js PlaneGeometry genera row=0 en v=0 (sur). Los DEMs se guardan con
+  // row=0=norte, así que invertimos las filas para mantener la orientación geográfica.
   const positions = geometry.attributes.position.array;
   for (let row = 0; row < height; row++) {
     for (let col = 0; col < width; col++) {
-      const idx = row * width + col;
-      const vIdx = idx * 3;
+      const demRow = height - 1 - row;
+      const idx = demRow * width + col;
+      const vIdx = (row * width + col) * 3;
       const elev = elevations[idx];
 
       if (!isNaN(elev) && elev > -9999) {

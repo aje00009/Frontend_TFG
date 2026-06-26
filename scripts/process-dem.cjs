@@ -8,10 +8,11 @@
  *     public/data/terrain/terrain.json  → metadatos (width, height, bbox, etc.)
  *
  * Uso:
- *   node scripts/process-dem.js [ruta/al/dem.tif] [max_size]
+ *   node scripts/process-dem.js [ruta/al/dem.tif] [max_size] [output_dir]
  *
  * Ejemplo:
- *   node scripts/process-dem.js public/data/terrain/dem.tif 1024
+ *   node scripts/process-dem.js public/data/terrain/dem.tif 1024 public/data/terrain
+ *   node scripts/process-dem.js dems/abies_alba.tif 1024 public/web/data/species/abies_alba/Random_Forest/terrain
  */
 
 const fs = require('fs');
@@ -20,7 +21,7 @@ const { fromFile } = require('geotiff');
 
 const INPUT_PATH = process.argv[2] || 'public/data/terrain/dem.tif';
 const MAX_SIZE = parseInt(process.argv[3], 10) || 1024;
-const OUTPUT_DIR = 'public/data/terrain';
+const OUTPUT_DIR = process.argv[4] || 'public/data/terrain';
 
 async function processDEM() {
   console.log(`Leyendo DEM: ${INPUT_PATH}`);
@@ -79,6 +80,7 @@ async function processDEM() {
   }
 
   // Guardar binario
+  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
   const binPath = path.join(OUTPUT_DIR, 'terrain.bin');
   fs.writeFileSync(binPath, Buffer.from(outElevations.buffer));
 

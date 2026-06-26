@@ -76,7 +76,8 @@ export async function initScenarioSelector(onChange) {
     speciesSelect.addEventListener('change', () => {
       currentSpecies = speciesList.find(s => s.id === speciesSelect.value);
       const algos = getAlgorithms(index, currentSpecies.id);
-      currentAlgo = algos[0] || null;
+      const prevAlgoId = currentAlgo?.id;
+      currentAlgo = algos.find(a => a.id === prevAlgoId) || algos[0] || null;
       if (currentAlgo) {
         currentScenarios = getScenarios(index, currentSpecies.id, currentAlgo.id, currentPeriod.id);
         currentScenario = currentScenarios[0] || null;

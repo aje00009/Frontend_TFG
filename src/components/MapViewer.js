@@ -4,7 +4,7 @@ import { loadCsv } from '../utils/dataLoader.js';
 import { loadSpeciesIndex, getOccurrencesPath } from '../utils/config.js';
 import {
   loadImageToCanvas,
-  getFlippedImageUrl,
+  getFlippedImageCanvas,
   samplePixel,
   pixelCoordsFromLonLat,
   formatCoords,
@@ -12,6 +12,7 @@ import {
   rgbToHex,
   createGEULegendCanvas,
   classifyGEUColor,
+  loadRasterBBox,
 } from '../utils/pickerUtils.js';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 
@@ -27,9 +28,9 @@ const BASE_LAYERS = {
 };
 
 async function createHeatmapMaterial(imageUrl, globalAlpha) {
-  const flippedUrl = await getFlippedImageUrl(imageUrl);
+  const flippedCanvas = await getFlippedImageCanvas(imageUrl);
   return new Cesium.ImageMaterialProperty({
-    image: flippedUrl,
+    image: flippedCanvas || imageUrl,
     transparent: true,
     color: new Cesium.Color(1, 1, 1, globalAlpha),
   });
@@ -48,8 +49,7 @@ export async function initMapViewer(containerId) {
 
   Cesium.Ion.defaultAccessToken = '';
 
-  const terrainProvider = await Cesium.createWorldTerrainAsync()
-    .catch(() => new Cesium.EllipsoidTerrainProvider());
+  const terrainProvider = new Cesium.EllipsoidTerrainProvider();
 
   const viewer = new Cesium.Viewer(containerId, {
     terrainProvider,
@@ -177,7 +177,7 @@ export async function initMapViewer(containerId) {
         if (currentImgData) currentImgData.url = currentPngUrl;
       }
       if (currentImgData) {
-        const { px, py } = pixelCoordsFromLonLat(lon, lat, currentHeatmapBBox, currentImgData.width, currentImgData.height);
+        const { px, py } = pixelCoordsFromLonLat(lon, lat, currentHeatmapBBox, currentImgData.width, currentImgData.height, false);
         const col = samplePixel(currentImgData.ctx, px, py, currentImgData.width, currentImgData.height);
         if (col) {
           hex = rgbToHex(col.r, col.g, col.b);
@@ -247,12 +247,18 @@ export async function initMapViewer(containerId) {
   });
   setBaseLayer('esri-satellite');
 
-  async function loadOccurrences(model) {
+  async function loadOccurrences(model, paths) {
     // Limpiar ocurrencias anteriores
     occurrenceEntities.forEach((entity) => viewer.entities.remove(entity));
     occurrenceEntities = [];
 
     if (!model || model.scenario.id !== 'actual' || !index) return;
+
+    // Calcular bbox del heatmap para filtrar ocurrencias fuera del raster
+    let bbox = null;
+    if (paths) {
+      bbox = await loadRasterBBox(paths);
+    }
 
     const csvPath = getOccurrencesPath(index, model.species.id, model.algorithm.id);
     const rows = await loadCsv(csvPath);
@@ -267,6 +273,11 @@ export async function initMapViewer(containerId) {
       const lon = parseFloat(row[lonKey]);
       const lat = parseFloat(row[latKey]);
       if (Number.isNaN(lon) || Number.isNaN(lat)) return;
+
+      // Ignorar ocurrencias fuera del bbox del heatmap
+      if (bbox && (lon < bbox.west || lon > bbox.east || lat < bbox.south || lat > bbox.north)) {
+        return;
+      }
 
       const entity = viewer.entities.add({
         position: Cesium.Cartesian3.fromDegrees(lon, lat),
@@ -297,7 +308,7 @@ export async function initMapViewer(containerId) {
     currentPngUrl = null;
 
     // Cargar/ocultar ocurrencias según escenario
-    await loadOccurrences(model);
+    await loadOccurrences(model, paths);
 
     if (!paths.png) {
       console.warn('[MapViewer] No hay paths.png');
@@ -305,23 +316,16 @@ export async function initMapViewer(containerId) {
     }
 
     try {
-      // Obtener bbox del GeoJSON
-      const geojson = await fetch(paths.geojson).then(r => r.ok ? r.json() : null);
+      // Obtener bbox completo del raster preferentemente del GeoTIFF real
       let rectangle = Cesium.Rectangle.fromDegrees(-10, 35, 5, 45);
+      const rasterBBox = await loadRasterBBox(paths);
 
-      if (geojson && geojson.features?.length > 0) {
-        const coords = geojson.features
-          .filter(f => f.geometry?.type === 'Point')
-          .map(f => f.geometry.coordinates);
-        if (coords.length > 0) {
-          const lons = coords.map(c => c[0]);
-          const lats = coords.map(c => c[1]);
-          rectangle = Cesium.Rectangle.fromDegrees(
-            Math.min(...lons), Math.min(...lats),
-            Math.max(...lons), Math.max(...lats)
-          );
-          viewer.camera.flyTo({ destination: rectangle, duration: 1.5 });
-        }
+      if (rasterBBox) {
+        rectangle = Cesium.Rectangle.fromDegrees(
+          rasterBBox.west, rasterBBox.south,
+          rasterBBox.east, rasterBBox.north
+        );
+        viewer.camera.flyTo({ destination: rectangle, duration: 1.5 });
       }
 
       console.log('[MapViewer] Cargando PNG:', paths.png);
@@ -345,9 +349,6 @@ export async function initMapViewer(containerId) {
         }
       });
 
-      // Precargar imagen volteada para picking (misma orientación que Cesium muestra)
-      currentImgData = await loadImageToCanvas(currentPngUrl, { flipY: true });
-      if (currentImgData) currentImgData.url = currentPngUrl;
       await updateLegend();
 
       console.log('[MapViewer] Heatmap entity creado:', heatmapEntity);

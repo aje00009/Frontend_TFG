@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "build:deploy": "vite build && node scripts/clean-unused-assets.cjs",
+    "preview": "vite preview",
+    "extract-bboxes": "node scripts/extract-bboxes.cjs",
+    "generate-pngs": "node scripts/generate-probability-pngs.cjs",
+    "process-dem": "node scripts/process-dem.cjs"
   },
   "dependencies": {
     "cesium": "^1.118.0",
@@ -17,6 +21,7 @@
   },
   "devDependencies": {
     "autoprefixer": "^10.4.19",
+    "jimp": "^1.6.1",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.4",
     "vite": "^5.3.0"

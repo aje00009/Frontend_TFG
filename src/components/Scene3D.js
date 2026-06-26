@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import { loadDEM, createTerrainGeometry, lonLatToMeters } from '../utils/terrainLoader.js';
 import { loadPointCloud, pointsToGeometry } from '../utils/pointCloudLoader.js';
 import { loadCsv } from '../utils/dataLoader.js';
@@ -8,6 +9,7 @@ import {
   getPaths,
   getOccurrencesPath,
   getPointCloudIndexUrl,
+  getTerrainBase,
   getPeriods,
   getAlgorithm,
 } from '../utils/config.js';
@@ -16,6 +18,7 @@ import {
   loadImageToCanvas,
   samplePixel,
   pixelCoordsFromLonLat,
+  loadRasterBBox,
   formatCoords,
   formatElevation,
   rgbToHex,
@@ -64,6 +67,7 @@ export async function initScene3D(containerId, initialModel, options = {}) {
 
   container.innerHTML = `
     <div id="three-canvas" class="w-full h-full relative">
+      <div id="css2d-overlay" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
       <div id="terrain-info" class="absolute top-3 left-3 z-10 bg-black/60 backdrop-blur text-white text-xs px-3 py-2 rounded-lg border border-white/10 pointer-events-none">
         Cargando...
       </div>
@@ -115,6 +119,10 @@ export async function initScene3D(containerId, initialModel, options = {}) {
             <span>0.0</span>
           </div>
         </div>
+        <div class="mt-2 flex items-center justify-center gap-2">
+          <canvas id="scene3d-occurrence-icon" width="14" height="14" class="rounded-full"></canvas>
+          <span class="text-[10px] text-gray-300">Ocurrencias</span>
+        </div>
       </div>
       <!-- Tooltip de picking -->
       <div id="scene3d-picker-card" class="absolute z-10 bg-black/80 backdrop-blur px-3 py-2 rounded-lg border border-white/10 text-white text-xs hidden max-w-[220px] pointer-events-none">
@@ -142,12 +150,21 @@ export async function initScene3D(containerId, initialModel, options = {}) {
 
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(w, h);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+  renderer.shadowMap.enabled = false;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 0.6;
   container.querySelector('#three-canvas').appendChild(renderer.domElement);
+
+  const css2dRenderer = new CSS2DRenderer();
+  css2dRenderer.setSize(w, h);
+  css2dRenderer.domElement.style.position = 'absolute';
+  css2dRenderer.domElement.style.top = '0';
+  css2dRenderer.domElement.style.left = '0';
+  css2dRenderer.domElement.style.width = '100%';
+  css2dRenderer.domElement.style.height = '100%';
+  css2dRenderer.domElement.style.pointerEvents = 'none';
+  container.querySelector('#css2d-overlay').appendChild(css2dRenderer.domElement);
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
@@ -173,6 +190,8 @@ export async function initScene3D(containerId, initialModel, options = {}) {
   let refLat = 42.5;
   let terrainMinElevation = 0;
   let terrainMaxElevation = 0;
+  let terrainWidthMeters = 0;
+  let terrainHeightMeters = 0;
   let demElevations = null;
   let demWidth = 0;
   let demHeight = 0;
@@ -211,9 +230,9 @@ export async function initScene3D(containerId, initialModel, options = {}) {
   scene.add(pickerMarker);
 
   // === CARGAR TERRENO ===
-  async function loadTerrain() {
+  async function loadTerrain(baseUrl = './data/terrain') {
     try {
-      const demData = await loadDEM();
+      const demData = await loadDEM(baseUrl);
       refLat = (demData.bbox.north + demData.bbox.south) / 2;
       currentBBox = demData.bbox;
 
@@ -231,8 +250,6 @@ export async function initScene3D(containerId, initialModel, options = {}) {
 
       terrainMesh = new THREE.Mesh(geometry, terrainMat);
       terrainMesh.rotation.x = -Math.PI / 2;
-      terrainMesh.receiveShadow = true;
-      terrainMesh.castShadow = true;
       worldGroup.add(terrainMesh);
 
       terrainMinElevation = minElevation;
@@ -240,6 +257,8 @@ export async function initScene3D(containerId, initialModel, options = {}) {
       demElevations = demData.elevations;
       demWidth = demData.width;
       demHeight = demData.height;
+      terrainWidthMeters = widthMeters;
+      terrainHeightMeters = heightMeters;
       const range = maxElevation - minElevation;
       infoEl.innerHTML = `
         <div class="font-semibold text-teal-400 mb-1">Terreno DEM cargado</div>
@@ -262,7 +281,7 @@ export async function initScene3D(containerId, initialModel, options = {}) {
     } catch (err) {
       console.error('[Scene3D] Error cargando DEM:', err);
       infoEl.innerHTML = `<span class="text-red-400">Error DEM: ${err.message}</span>`;
-      return null;
+      throw err;
     }
   }
 
@@ -333,11 +352,23 @@ export async function initScene3D(containerId, initialModel, options = {}) {
 
     if (!heatmapMesh) {
       const geo = terrainMesh.geometry.clone();
-      const uvs = geo.attributes.uv.array;
-      for (let i = 1; i < uvs.length; i += 2) {
-        uvs[i] = 1 - uvs[i];
+
+      // Recortar el heatmap al bbox del DEM. Los PNGs son north-up, por lo que
+      // las UVs del terreno (v=0 sur, v=1 norte) se mapean directamente.
+      if (currentHeatmapBBox && currentBBox) {
+        const uvs = geo.attributes.uv.array;
+        const uMin = (currentBBox.west - currentHeatmapBBox.west) / (currentHeatmapBBox.east - currentHeatmapBBox.west);
+        const uMax = (currentBBox.east - currentHeatmapBBox.west) / (currentHeatmapBBox.east - currentHeatmapBBox.west);
+        const vMin = (currentBBox.south - currentHeatmapBBox.south) / (currentHeatmapBBox.north - currentHeatmapBBox.south);
+        const vMax = (currentBBox.north - currentHeatmapBBox.south) / (currentHeatmapBBox.north - currentHeatmapBBox.south);
+        for (let i = 0; i < uvs.length; i += 2) {
+          const u = uvs[i];
+          const v = uvs[i + 1];
+          uvs[i] = uMin + u * (uMax - uMin);
+          uvs[i + 1] = vMin + v * (vMax - vMin);
+        }
+        geo.attributes.uv.needsUpdate = true;
       }
-      geo.attributes.uv.needsUpdate = true;
 
       const mat = createHeatmapMaterial(texture, placeholderTex);
       heatmapMesh = new THREE.Mesh(geo, mat);
@@ -375,6 +406,68 @@ export async function initScene3D(containerId, initialModel, options = {}) {
     return texture;
   }
 
+  // Textura compartida para los markers de ocurrencias
+  const occurrenceMarkerTexture = (() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+
+    // Fondo transparente; todo lo demás opaco para que el billboard opaco se vea nítido
+    ctx.clearRect(0, 0, 128, 128);
+
+    // Cuerpo del pin (forma de gota), punta en el centro inferior del canvas
+    ctx.beginPath();
+    ctx.moveTo(64, 110);
+    ctx.bezierCurveTo(20, 76, 20, 28, 64, 28);
+    ctx.bezierCurveTo(108, 28, 108, 76, 64, 110);
+    ctx.closePath();
+
+    // Relleno blanco opaco
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+
+    // Borde negro grueso para resaltar sobre cualquier fondo
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = '#000000';
+    ctx.stroke();
+
+    // Círculo interior naranja
+    ctx.beginPath();
+    ctx.arc(64, 52, 18, 0, Math.PI * 2);
+    ctx.fillStyle = '#ff4500';
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#000000';
+    ctx.stroke();
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  })();
+
+  function createOccurrenceLegendIcon() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 16;
+    canvas.height = 16;
+    const ctx = canvas.getContext('2d');
+    ctx.beginPath();
+    ctx.moveTo(8, 14);
+    ctx.bezierCurveTo(2.5, 9.5, 2.5, 3.5, 8, 3.5);
+    ctx.bezierCurveTo(13.5, 3.5, 13.5, 9.5, 8, 14);
+    ctx.closePath();
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = '#333333';
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(8, 6.5, 2.2, 0, Math.PI * 2);
+    ctx.fillStyle = '#ff4500';
+    ctx.fill();
+    return canvas;
+  }
+
   // === CARGAR OCURRENCIAS (solo escenario actual) ===
   async function loadOccurrences3D(model) {
     if (occurrenceGroup) {
@@ -384,6 +477,11 @@ export async function initScene3D(containerId, initialModel, options = {}) {
         if (child.material) child.material.dispose();
       });
       occurrenceGroup = null;
+    }
+
+    // Limpiar posibles markers HTML huérfanos del renderer 2D
+    if (css2dRenderer) {
+      css2dRenderer.domElement.querySelectorAll('.occurrence-marker-anchor').forEach((el) => el.remove());
     }
 
     if (!model || model.scenario.id !== 'actual' || !index || !currentBBox) return;
@@ -399,19 +497,45 @@ export async function initScene3D(containerId, initialModel, options = {}) {
 
     occurrenceGroup = new THREE.Group();
 
+    const markerSize = Math.max(terrainWidthMeters, terrainHeightMeters) * 0.012;
+
+    // Centrar las ocurrencias respecto al bbox del DEM, igual que el terreno.
+    const centerLon = (currentBBox.west + currentBBox.east) / 2;
+    const centerLat = (currentBBox.south + currentBBox.north) / 2;
+    const centerM = lonLatToMeters(centerLon, centerLat, refLat);
+
     rows.forEach((row) => {
       const lon = parseFloat(row[lonKey]);
       const lat = parseFloat(row[latKey]);
       if (Number.isNaN(lon) || Number.isNaN(lat)) return;
 
+      // Ignorar ocurrencias fuera del bbox del DEM
+      if (
+        lon < currentBBox.west ||
+        lon > currentBBox.east ||
+        lat < currentBBox.south ||
+        lat > currentBBox.north
+      ) {
+        return;
+      }
+
       const m = lonLatToMeters(lon, lat, refLat);
-      const geometry = new THREE.ConeGeometry(150, 400, 16);
-      geometry.translate(0, 200, 0);
-      const material = new THREE.MeshLambertMaterial({ color: 0xfbbf24 });
-      const marker = new THREE.Mesh(geometry, material);
-      marker.position.set(m.x, 0, m.y);
-      marker.rotation.x = Math.PI;
-      marker.castShadow = true;
+      const elev = getElevationAtLonLat(lon, lat);
+      const y = elev !== null ? (elev - terrainMinElevation) * 1.8 : 0;
+
+      const anchor = document.createElement('div');
+      anchor.className = 'occurrence-marker-anchor';
+      anchor.innerHTML = `
+        <div class="occurrence-marker-3d">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="white" stroke="black" stroke-width="1.5"/>
+            <circle cx="12" cy="9" r="2.5" fill="#ff4500" stroke="black" stroke-width="1"/>
+          </svg>
+        </div>
+      `;
+
+      const marker = new CSS2DObject(anchor);
+      marker.position.set(m.x - centerM.x, y, m.y - centerM.y);
       occurrenceGroup.add(marker);
     });
 
@@ -485,7 +609,7 @@ export async function initScene3D(containerId, initialModel, options = {}) {
 
         // Downsampling para nubes enormes: mostrar solo 1 de cada N puntos
         const totalPoints = posAttr.count;
-        const stride = totalPoints > 5000000 ? 100 : (totalPoints > 500000 ? 20 : 1);
+        const stride = totalPoints > 2000000 ? 200 : (totalPoints > 500000 ? 50 : (totalPoints > 100000 ? 10 : 1));
         rawCount = totalPoints;
 
         if (stride > 1) {
@@ -629,7 +753,13 @@ export async function initScene3D(containerId, initialModel, options = {}) {
     return new Promise((resolve) => {
       new THREE.TextureLoader().load(
         url,
-        (t) => { t.colorSpace = THREE.SRGBColorSpace; resolve(t); },
+        (t) => {
+          t.colorSpace = THREE.SRGBColorSpace;
+          t.magFilter = THREE.LinearFilter;
+          t.minFilter = THREE.LinearFilter;
+          t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+          resolve(t);
+        },
         undefined,
         () => resolve(null)
       );
@@ -660,11 +790,7 @@ export async function initScene3D(containerId, initialModel, options = {}) {
 
     currentScenarioPng = model.paths?.png || null;
     await updateHeatmapBBoxFromScenario(model);
-    if (currentScenarioPng) {
-      currentImgData = await loadImageToCanvas(currentScenarioPng);
-      if (currentImgData) currentImgData.url = currentScenarioPng;
-      await updateLegend();
-    }
+    await updateLegend();
 
     if (currentTextureType === 'heatmap') {
       const precached = animationState.textures.get(item.id);
@@ -793,9 +919,23 @@ export async function initScene3D(containerId, initialModel, options = {}) {
   }
 
   // === INICIALIZACIÓN ===
-  const terrainInfo = await loadTerrain();
+  let terrainInfo = null;
+  const speciesTerrainBase = initialModel ? getTerrainBase(initialModel.species.id, initialModel.algorithm.id) : './data/terrain';
+  try {
+    terrainInfo = await loadTerrain(speciesTerrainBase);
+  } catch (err) {
+    console.warn(`[Scene3D] DEM específico no disponible en ${speciesTerrainBase}, usando DEM global.`);
+    try {
+      terrainInfo = await loadTerrain('./data/terrain');
+    } catch (fallbackErr) {
+      console.error('[Scene3D] No se pudo cargar ningún DEM:', fallbackErr);
+    }
+  }
   if (terrainInfo) {
-    if (initialModel) await loadHeatmap(initialModel);
+    if (initialModel) {
+      await updateHeatmapBBoxFromScenario(initialModel);
+      await loadHeatmap(initialModel);
+    }
     if (cloudOptions.some(o => o.url)) await loadPointCloudScene();
   }
 
@@ -863,10 +1003,16 @@ export async function initScene3D(containerId, initialModel, options = {}) {
   async function updateLegend() {
     const canvas = createGEULegendCanvas();
     const legendCanvas = container.querySelector('#scene3d-legend-canvas');
+    const occurrenceIcon = container.querySelector('#scene3d-occurrence-icon');
     if (canvas && legendCanvas && scene3dLegend) {
       const ctx = legendCanvas.getContext('2d');
       ctx.clearRect(0, 0, legendCanvas.width, legendCanvas.height);
       ctx.drawImage(canvas, 0, 0, legendCanvas.width, legendCanvas.height);
+      if (occurrenceIcon) {
+        const iconCtx = occurrenceIcon.getContext('2d');
+        iconCtx.clearRect(0, 0, occurrenceIcon.width, occurrenceIcon.height);
+        iconCtx.drawImage(createOccurrenceLegendIcon(), 0, 0, occurrenceIcon.width, occurrenceIcon.height);
+      }
       scene3dLegend.classList.remove('hidden');
     } else if (scene3dLegend) {
       scene3dLegend.classList.add('hidden');
@@ -877,11 +1023,26 @@ export async function initScene3D(containerId, initialModel, options = {}) {
     if (!demElevations || !demWidth || !demHeight) return null;
     if (!uv || uv.x < 0 || uv.x > 1 || uv.y < 0 || uv.y > 1) return null;
     const col = Math.floor(uv.x * (demWidth - 1));
-    const row = Math.floor(uv.y * (demHeight - 1));
+    // row=0 del DEM es norte; uv.y=0 es sur.
+    const row = Math.floor((1 - uv.y) * (demHeight - 1));
     const idx = row * demWidth + col;
     const v = demElevations[idx];
     if (isNaN(v) || v <= -9999) return null;
     return v;
+  }
+
+  function getElevationAtLonLat(lon, lat) {
+    if (!demElevations || !demWidth || !demHeight || !currentBBox) return null;
+    const u = (lon - currentBBox.west) / (currentBBox.east - currentBBox.west);
+    const v = (lat - currentBBox.south) / (currentBBox.north - currentBBox.south);
+    if (u < 0 || u > 1 || v < 0 || v > 1) return null;
+    // row 0 del DEM corresponde al norte
+    const col = Math.floor(u * (demWidth - 1));
+    const row = Math.floor((1 - v) * (demHeight - 1));
+    const idx = row * demWidth + col;
+    const val = demElevations[idx];
+    if (isNaN(val) || val <= -9999) return null;
+    return val;
   }
 
   function getElevationFromPoint(point) {
@@ -923,10 +1084,9 @@ export async function initScene3D(containerId, initialModel, options = {}) {
       return;
     }
 
-    // NOTA: Se invierte uv.y en latitud porque el DEM se carga con row=0=norte
-    // pero PlaneGeometry uv.y=0 corresponde a la fila inferior (sur).
+    // uv.y=0 corresponde al sur del DEM y uv.y=1 al norte.
     const lon = currentBBox.west + uv.x * (currentBBox.east - currentBBox.west);
-    const lat = currentBBox.north - uv.y * (currentBBox.north - currentBBox.south);
+    const lat = currentBBox.south + uv.y * (currentBBox.north - currentBBox.south);
     let elev = getElevationAtUV(uv);
     if (elev === null) {
       elev = getElevationFromPoint(hit.point);
@@ -943,7 +1103,7 @@ export async function initScene3D(containerId, initialModel, options = {}) {
       if (currentImgData) currentImgData.url = currentScenarioPng;
     }
     if (currentImgData) {
-      const { px, py } = pixelCoordsFromLonLat(lon, lat, bboxForPng, currentImgData.width, currentImgData.height);
+      const { px, py } = pixelCoordsFromLonLat(lon, lat, bboxForPng, currentImgData.width, currentImgData.height, true);
       const col = samplePixel(currentImgData.ctx, px, py, currentImgData.width, currentImgData.height);
       if (col) {
         hex = rgbToHex(col.r, col.g, col.b);
@@ -1019,26 +1179,10 @@ export async function initScene3D(containerId, initialModel, options = {}) {
   async function updateHeatmapBBoxFromScenario(model) {
     if (!index) return;
     const paths = getPaths(index, model.species.id, model.algorithm.id, model.scenario);
-    if (!paths.geojson) return;
-    try {
-      const geojson = await fetch(paths.geojson).then(r => r.ok ? r.json() : null);
-      if (geojson && geojson.features?.length > 0) {
-        const coords = geojson.features
-          .filter(f => f.geometry?.type === 'Point')
-          .map(f => f.geometry.coordinates);
-        if (coords.length > 0) {
-          const lons = coords.map(c => c[0]);
-          const lats = coords.map(c => c[1]);
-          currentHeatmapBBox = {
-            west: Math.min(...lons),
-            south: Math.min(...lats),
-            east: Math.max(...lons),
-            north: Math.max(...lats),
-          };
-        }
-      }
-    } catch (err) {
-      console.warn('[Scene3D] No se pudo calcular BBox del heatmap:', err);
+    const rasterBBox = await loadRasterBBox(paths);
+    if (rasterBBox) {
+      currentHeatmapBBox = rasterBBox;
+    } else {
       currentHeatmapBBox = null;
     }
   }
@@ -1047,12 +1191,39 @@ export async function initScene3D(containerId, initialModel, options = {}) {
     if (!model) return;
     currentModel = model;
 
-    // Recargar nubes solo si cambió especie o algoritmo
+    // Recargar terreno y nubes solo si cambió especie o algoritmo
     const speciesChanged = model.species?.id !== currentSpeciesId;
     const algoChanged = model.algorithm?.id !== currentAlgoId;
     if ((speciesChanged || algoChanged) && model.species && model.algorithm) {
       currentSpeciesId = model.species.id;
       currentAlgoId = model.algorithm.id;
+
+      // Recargar DEM específico para la nueva especie/algoritmo
+      const newTerrainBase = getTerrainBase(currentSpeciesId, currentAlgoId);
+      try {
+        // Limpiar terreno y heatmap anteriores
+        if (terrainMesh) {
+          worldGroup.remove(terrainMesh);
+          terrainMesh.geometry.dispose();
+          terrainMesh.material.dispose();
+          terrainMesh = null;
+        }
+        if (heatmapMesh) {
+          worldGroup.remove(heatmapMesh);
+          heatmapMesh.geometry.dispose();
+          heatmapMesh.material.dispose();
+          heatmapMesh = null;
+        }
+        await loadTerrain(newTerrainBase);
+      } catch (e) {
+        console.warn(`[Scene3D] DEM específico no disponible en ${newTerrainBase}, usando DEM global.`);
+        try {
+          await loadTerrain('./data/terrain');
+        } catch (fallbackErr) {
+          console.error('[Scene3D] No se pudo cargar ningún DEM:', fallbackErr);
+        }
+      }
+
       const newOptions = await loadCloudOptions(currentSpeciesId, currentAlgoId);
       if (newOptions.length) {
         cloudOptions = newOptions;
@@ -1078,11 +1249,7 @@ export async function initScene3D(containerId, initialModel, options = {}) {
 
     currentScenarioPng = model.paths?.png || null;
     await updateHeatmapBBoxFromScenario(model);
-    if (currentScenarioPng) {
-      currentImgData = await loadImageToCanvas(currentScenarioPng);
-      if (currentImgData) currentImgData.url = currentScenarioPng;
-      await updateLegend();
-    }
+    await updateLegend();
     const animPanelVisible = tsPanel && !tsPanel.classList.contains('hidden');
     if (currentTextureType === 'heatmap' && !animPanelVisible) {
       await loadHeatmap(model);
@@ -1249,6 +1416,7 @@ export async function initScene3D(containerId, initialModel, options = {}) {
     requestAnimationFrame(animate);
     controls.update();
     renderer.render(scene, camera);
+    css2dRenderer.render(scene, camera);
   }
   animate();
 
@@ -1258,6 +1426,7 @@ export async function initScene3D(containerId, initialModel, options = {}) {
     camera.aspect = cw / ch;
     camera.updateProjectionMatrix();
     renderer.setSize(cw, ch);
+    css2dRenderer.setSize(cw, ch);
   });
 
   function exportPNG() {
@@ -1281,12 +1450,7 @@ export async function initScene3D(containerId, initialModel, options = {}) {
     if (terrainMesh) {
       const terrainClone = terrainMesh.clone();
       if (currentHeatmapTexture) {
-        // Invertir UVs en Y para que la textura se oriente correctamente (igual que en el heatmapMesh)
-        const uvs = terrainClone.geometry.attributes.uv.array;
-        for (let i = 1; i < uvs.length; i += 2) {
-          uvs[i] = 1 - uvs[i];
-        }
-        terrainClone.geometry.attributes.uv.needsUpdate = true;
+        // Las UVs ya están recortadas al bbox del DEM en el heatmapMesh clonado
         terrainClone.material = new THREE.MeshStandardMaterial({
           map: currentHeatmapTexture,
           roughness: 0.9,

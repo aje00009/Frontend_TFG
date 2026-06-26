@@ -52,8 +52,6 @@ export async function initDownloads(containerId) {
     const paths = getPaths(index, model.species.id, model.algorithm.id, model.scenario);
     const items = [];
 
-    if (paths.tif) items.push(makeCard('GeoTIFF', paths.tif));
-    if (paths.geojson) items.push(makeCard('GeoJSON', paths.geojson));
     if (paths.png) items.push(makeCard('Heatmap PNG', paths.png));
     if (paths.metrics) items.push(makeCard('Métricas JSON', paths.metrics));
     if (paths.config) items.push(makeCard('Config JSON', paths.config));

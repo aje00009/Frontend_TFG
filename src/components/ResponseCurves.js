@@ -62,7 +62,7 @@ export async function initResponseCurves(containerId) {
     </div>
     <div id="plotly-curve" class="w-full h-[500px] rounded-xl overflow-hidden"></div>
     <div id="curves-info" class="mt-6 text-center text-gray-400 text-sm hidden">
-      No se encontró el CSV de curvas de respuesta. Asegúrate de haber copiado los archivos exportados a <code>public/data/</code>.
+      No se encontró el CSV de curvas de respuesta. Asegúrate de haber copiado los archivos exportados a <code>public/web/data/</code>.
     </div>
   `;
 

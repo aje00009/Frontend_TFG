@@ -28,7 +28,7 @@ export async function initDiffMap(containerId) {
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
         <span>Selecciona un período y un SSP para ver el mapa de diferencias.</span>
-        <span class="text-xs text-gray-600">Los archivos PNG deben estar en <code>public/data/species/{especie}/{algoritmo}/diff/</code></span>
+        <span class="text-xs text-gray-600">Los archivos PNG deben estar en <code>public/web/data/species/{especie}/{algoritmo}/diff/</code></span>
       </div>
     </div>
     <div class="flex justify-center gap-6 mt-6">
@@ -90,14 +90,23 @@ export async function initDiffMap(containerId) {
     `;
   }
 
-  function renderTables(data, ssps) {
+  function renderTables(data, ssps, periodId) {
     if (!data) {
       tablesContainer.innerHTML = '';
       return;
     }
 
     const current = data.current || {};
-    const futures = data.futures || [];
+    const allFutures = data.futures || [];
+    const periodLabel = periodId ? allPeriods.find(p => p.id === periodId)?.label || periodId : null;
+    const futures = periodId
+      ? allFutures.filter(f => String(f.period).trim() === periodLabel)
+      : allFutures;
+
+    if (futures.length === 0) {
+      tablesContainer.innerHTML = '';
+      return;
+    }
     const threshold = data.threshold ?? 0.5;
 
     // Tabla 1: Área por umbral
@@ -203,7 +212,7 @@ export async function initDiffMap(containerId) {
         return;
       }
       const data = await res.json();
-      renderTables(data, ssps);
+      renderTables(data, ssps, periodId);
     } catch (err) {
       console.warn('[DiffMap] No se pudieron cargar las tablas:', err);
       tablesContainer.innerHTML = '';
@@ -300,6 +309,7 @@ export async function initDiffMap(containerId) {
       loadDiffImage(model.species.id, model.algorithm.id, currentPeriodId, currentSspId);
       loadTables(model.species.id, model.algorithm.id, currentPeriodId, ssps);
     } else {
+      tablesContainer.innerHTML = '';
       img.classList.add('hidden');
       placeholder.classList.remove('hidden');
       placeholder.querySelector('span').textContent = 'Selecciona un período y un SSP para ver las diferencias.';

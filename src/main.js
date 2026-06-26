@@ -17,19 +17,41 @@ import { initDownloads } from './components/Downloads.js';
   initHero();
 
   let currentModel = null;
-  await initScenarioSelector((model) => {
-    currentModel = model;
-    window.dispatchEvent(new CustomEvent('model-changed', { detail: model }));
-  });
+  try {
+    await initScenarioSelector((model) => {
+      currentModel = model;
+      window.dispatchEvent(new CustomEvent('model-changed', { detail: model }));
+    });
+  } catch (err) {
+    console.error('[Bootstrap] Error en ScenarioSelector:', err);
+  }
 
-  const mapViewer = await initMapViewer('map-container');
-  initDashboard('dashboard');
-  initResponseCurves('curves');
-  initDiffMap('diff');
-  initProbabilityHistogram('histogram');
-  await initSideBySideComparator('comparator', currentModel);
-  const scene3D = await initScene3D('scene3d', currentModel);
-  initDownloads('downloads');
+  let mapViewer;
+  try {
+    mapViewer = await initMapViewer('map-container');
+  } catch (err) {
+    console.error('[Bootstrap] Error en MapViewer:', err);
+  }
+
+  try { initDashboard('dashboard'); } catch (err) { console.error('[Bootstrap] Error en Dashboard:', err); }
+  try { initResponseCurves('curves'); } catch (err) { console.error('[Bootstrap] Error en ResponseCurves:', err); }
+  try { initDiffMap('diff'); } catch (err) { console.error('[Bootstrap] Error en DiffMap:', err); }
+  try { initProbabilityHistogram('histogram'); } catch (err) { console.error('[Bootstrap] Error en ProbabilityHistogram:', err); }
+
+  try {
+    await initSideBySideComparator('comparator', currentModel);
+  } catch (err) {
+    console.error('[Bootstrap] Error en SideBySideComparator:', err);
+  }
+
+  let scene3D;
+  try {
+    scene3D = await initScene3D('scene3d', currentModel);
+  } catch (err) {
+    console.error('[Bootstrap] Error en Scene3D:', err);
+  }
+
+  try { initDownloads('downloads'); } catch (err) { console.error('[Bootstrap] Error en Downloads:', err); }
 
   if (currentModel) {
     window.dispatchEvent(new CustomEvent('model-changed', { detail: currentModel }));

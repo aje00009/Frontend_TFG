@@ -1,12 +1,12 @@
 import * as Cesium from 'cesium';
 import { loadSpeciesIndex, getPaths, getScenarios } from '../utils/config.js';
-import { getFlippedImageUrl } from '../utils/pickerUtils.js';
+import { getFlippedImageCanvas, loadRasterBBox } from '../utils/pickerUtils.js';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 
 async function createHeatmapMaterialCesium(imageUrl, alpha) {
-  const flippedUrl = await getFlippedImageUrl(imageUrl);
+  const flippedCanvas = await getFlippedImageCanvas(imageUrl);
   return new Cesium.ImageMaterialProperty({
-    image: flippedUrl,
+    image: flippedCanvas || imageUrl,
     transparent: true,
     color: new Cesium.Color(1, 1, 1, alpha),
   });
@@ -15,8 +15,7 @@ async function createHeatmapMaterialCesium(imageUrl, alpha) {
 async function createViewer2D(containerId) {
   Cesium.Ion.defaultAccessToken = '';
 
-  const terrainProvider = await Cesium.createWorldTerrainAsync()
-    .catch(() => new Cesium.EllipsoidTerrainProvider());
+  const terrainProvider = new Cesium.EllipsoidTerrainProvider();
 
   const viewer = new Cesium.Viewer(containerId, {
     terrainProvider,
@@ -51,21 +50,13 @@ async function loadHeatmap2D(viewer, paths, alpha = 0.8) {
   const existing = viewer.entities.getById('heatmap-overlay');
   if (existing) viewer.entities.remove(existing);
 
-  const geojson = await fetch(paths.geojson).then(r => r.ok ? r.json() : null);
   let rectangle = Cesium.Rectangle.fromDegrees(-10, 35, 5, 45);
-
-  if (geojson && geojson.features?.length > 0) {
-    const coords = geojson.features
-      .filter(f => f.geometry?.type === 'Point')
-      .map(f => f.geometry.coordinates);
-    if (coords.length > 0) {
-      const lons = coords.map(c => c[0]);
-      const lats = coords.map(c => c[1]);
-      rectangle = Cesium.Rectangle.fromDegrees(
-        Math.min(...lons), Math.min(...lats),
-        Math.max(...lons), Math.max(...lats)
-      );
-    }
+  const rasterBBox = await loadRasterBBox(paths);
+  if (rasterBBox) {
+    rectangle = Cesium.Rectangle.fromDegrees(
+      rasterBBox.west, rasterBBox.south,
+      rasterBBox.east, rasterBBox.north
+    );
   }
 
   viewer.entities.add({
@@ -179,6 +170,8 @@ export async function initSideBySideComparator(containerId, initialModel) {
   let currentModel = null;
   const leftSel = container.querySelector('#comp-2d-left-scenario');
   const rightSel = container.querySelector('#comp-2d-right-scenario');
+  let viewerLeft = null;
+  let viewerRight = null;
 
   function populateSelector(sel, scenarios, defaultId) {
     if (!sel) return;
@@ -187,20 +180,39 @@ export async function initSideBySideComparator(containerId, initialModel) {
     ).join('');
   }
 
+  function keepSimilarScenario(prevId, scenarios, defaultId) {
+    if (!prevId || !scenarios.length) return defaultId;
+    if (scenarios.some(s => s.id === prevId)) return prevId;
+    const prevSsp = prevId.split('_')[0];
+    const sameSsp = scenarios.find(s => s.id.startsWith(prevSsp + '_'));
+    return sameSsp?.id || defaultId;
+  }
+
   function render(model) {
     if (!model) return;
     currentModel = model;
     const scenarios = getAllScenarios(index, model.species.id, model.algorithm.id);
     if (!scenarios.length) return;
+
+    const prevLeft = leftSel?.value;
+    const prevRight = rightSel?.value;
     const defaultRight = scenarios.find(s => s.id !== 'actual')?.id || scenarios[0]?.id;
+
     populateSelector(leftSel, scenarios, 'actual');
     populateSelector(rightSel, scenarios, defaultRight);
+
+    // Mantener la selección anterior; si cambió el período, intentar conservar el mismo SSP
+    leftSel.value = keepSimilarScenario(prevLeft, scenarios, 'actual');
+    rightSel.value = keepSimilarScenario(prevRight, scenarios, defaultRight);
+
+    // Recargar automáticamente ambos paneles ante cualquier cambio de modelo
+    if (viewerLeft) updatePanel(viewerLeft, leftSel, getAlpha());
+    if (viewerRight) updatePanel(viewerRight, rightSel, getAlpha());
   }
 
   window.addEventListener('model-changed', (e) => render(e.detail));
   if (initialModel) render(initialModel);
 
-  let viewerLeft, viewerRight;
   try {
     viewerLeft = await createViewer2D('comp-2d-left-map');
     viewerRight = await createViewer2D('comp-2d-right-map');

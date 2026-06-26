@@ -18,7 +18,7 @@ export async function initDashboard(containerId) {
   container.innerHTML = `
     <div id="metrics-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
     <div id="metrics-info" class="mt-8 text-center text-gray-400 text-sm hidden">
-      No se encontraron métricas. Asegúrate de haber copiado los archivos exportados a <code>public/data/</code>.
+      No se encontraron métricas. Asegúrate de haber copiado los archivos exportados a <code>public/web/data/</code>.
     </div>
   `;
 

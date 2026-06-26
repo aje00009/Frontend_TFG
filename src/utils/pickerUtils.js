@@ -6,9 +6,9 @@ const imageCache = new Map();
 
 /**
  * Carga una imagen en un canvas offscreen y cachea el resultado.
- * Si flipY es true, dibuja la imagen volteada verticalmente. Esto es útil
- * para Cesium, que mapea las coordenadas V de textura en sentido contrario
- * al origen habitual de las imágenes PNG (origen arriba-izquierda = NW).
+ * Si flipY es true, dibuja la imagen volteada verticalmente.
+ * Los PNGs de probabilidad son north-up (origen arriba-izquierda = NW);
+ * por tanto Cesium y Three.js los muestran correctamente sin voltear.
  */
 export async function loadImageToCanvas(url, { flipY = false } = {}) {
   if (!url) return null;
@@ -43,13 +43,22 @@ export async function loadImageToCanvas(url, { flipY = false } = {}) {
 }
 
 /**
- * Carga una imagen, la voltea verticalmente y devuelve una URL de datos (data URL).
- * Útil para corregir la orientación de texturas en Cesium.
+ * Carga una imagen, la voltea verticalmente y devuelve el canvas resultante.
+ * Se usa directamente con Cesium para evitar el coste de generar data URLs
+ * base64 de imágenes enormes.
+ */
+export async function getFlippedImageCanvas(url) {
+  const data = await loadImageToCanvas(url, { flipY: true });
+  return data?.canvas || null;
+}
+
+/**
+ * @deprecated Usa getFlippedImageCanvas para evitar data URLs pesadas.
  */
 export async function getFlippedImageUrl(url) {
-  const data = await loadImageToCanvas(url, { flipY: true });
-  if (!data) return url;
-  return data.canvas.toDataURL('image/png');
+  const canvas = await getFlippedImageCanvas(url);
+  if (!canvas) return url;
+  return canvas.toDataURL('image/png');
 }
 
 /**
@@ -64,6 +73,62 @@ export function samplePixel(ctx, x, y, width, height) {
 }
 
 /**
+ * Calcula el bbox completo de un raster a partir de los puntos de su GeoJSON.
+ * Los puntos suelen ser los centros de las celdas, así que expande medio paso
+ * por cada lado para coincidir con el extent real del PNG/GeoTIFF.
+ */
+export function getRasterBBoxFromGeoJSON(geojson) {
+  if (!geojson?.features?.length) return null;
+  const coords = geojson.features
+    .filter((f) => f.geometry?.type === 'Point')
+    .map((f) => f.geometry.coordinates);
+  if (coords.length === 0) return null;
+
+  const lons = coords.map((c) => c[0]).sort((a, b) => a - b);
+  const lats = coords.map((c) => c[1]).sort((a, b) => a - b);
+  const lonStep = lons.length > 1 ? lons[1] - lons[0] : 0;
+  const latStep = lats.length > 1 ? lats[1] - lats[0] : 0;
+
+  return {
+    west: lons[0] - lonStep / 2,
+    south: lats[0] - latStep / 2,
+    east: lons[lons.length - 1] + lonStep / 2,
+    north: lats[lats.length - 1] + latStep / 2,
+  };
+}
+
+/**
+ * Carga el bbox preferente del archivo {scenario}_bbox.json extraído del GeoTIFF.
+ * Si no existe, calcula el bbox a partir del GeoJSON como fallback.
+ */
+export async function loadRasterBBox(paths) {
+  if (paths?.bbox) {
+    try {
+      const res = await fetch(paths.bbox);
+      if (res.ok) {
+        const meta = await res.json();
+        if (meta && typeof meta.west === 'number') {
+          return { west: meta.west, south: meta.south, east: meta.east, north: meta.north };
+        }
+      }
+    } catch (err) {
+      console.warn('[loadRasterBBox] No se pudo cargar bbox.json:', err);
+    }
+  }
+
+  if (paths?.geojson) {
+    try {
+      const res = await fetch(paths.geojson);
+      if (res.ok) return getRasterBBoxFromGeoJSON(await res.json());
+    } catch (err) {
+      console.warn('[loadRasterBBox] No se pudo cargar GeoJSON:', err);
+    }
+  }
+
+  return null;
+}
+
+/**
  * Convierte UV del terreno (Three.js) a lon/lat.
  * Asume uv en [0,1] con (0,0)=SW y (1,1)=NE.
  */
@@ -75,13 +140,16 @@ export function lonLatFromTerrainUV(uv, bbox) {
 
 /**
  * Convierte lon/lat a coordenadas de píxel en una imagen PNG.
- * Asume PNG con origen (0,0) arriba-izquierda = NW.
+ * Los PNGs de probabilidad son north-up (origen arriba-izquierda = NW).
+ * flipY=false usa esa convención directamente; flipY=true invierte la Y.
  */
-export function pixelCoordsFromLonLat(lon, lat, bbox, imgW, imgH) {
+export function pixelCoordsFromLonLat(lon, lat, bbox, imgW, imgH, flipY = false) {
   const u = (lon - bbox.west) / (bbox.east - bbox.west);
   const v = (lat - bbox.south) / (bbox.north - bbox.south);
   const px = Math.floor(Math.max(0, Math.min(1, u)) * (imgW - 1));
-  const py = Math.floor((1 - Math.max(0, Math.min(1, v))) * (imgH - 1));
+  const py = flipY
+    ? Math.floor((1 - Math.max(0, Math.min(1, v))) * (imgH - 1))
+    : Math.floor(Math.max(0, Math.min(1, v)) * (imgH - 1));
   return { px, py };
 }
 

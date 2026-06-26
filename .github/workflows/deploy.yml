@@ -33,6 +33,11 @@ jobs:
       - name: Build project
         run: npm run build
 
+      # Los datos pesados se sirven desde Cloudflare R2.
+      # Se eliminan de dist por si acaso, para que GitHub Pages solo aloje el frontend.
+      - name: Remove heavy data from GitHub Pages artifact
+        run: rm -rf dist/web dist/data
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
