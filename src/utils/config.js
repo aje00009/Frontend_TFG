@@ -3,9 +3,9 @@
  * Lee el catálogo desde ./web/data/index.json generado por GEU.
  */
 
-const INDEX_URL = './web/data/index.json';
 const DATA_BASE = import.meta.env.VITE_DATA_BASE || './web/data';
 const POINTCLOUD_BASE = import.meta.env.VITE_POINTCLOUD_BASE || './data/pointcloud';
+const INDEX_URL = `${DATA_BASE}/index.json`;
 
 /**
  * Zonas DEM por especie. Permite que cada especie use el relieve correcto
