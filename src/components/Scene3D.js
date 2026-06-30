@@ -25,6 +25,7 @@ import {
   createGEULegendCanvas,
   classifyGEUColor,
 } from '../utils/pickerUtils.js';
+import { renderOverviewMap } from './OverviewMap.js';
 
 
 export async function initScene3D(containerId, initialModel, options = {}) {
@@ -67,13 +68,17 @@ export async function initScene3D(containerId, initialModel, options = {}) {
 
   container.innerHTML = `
     <div id="three-canvas" class="w-full h-full relative">
+      <div id="scene3d-loading" class="absolute inset-0 z-[9999] bg-terra-bg backdrop-blur flex flex-col items-center justify-center gap-3 text-terra-text transition-opacity duration-300 hidden" style="z-index: 9999;">
+        <div class="w-10 h-10 border-4 border-terra-accent border-t-transparent rounded-full animate-spin"></div>
+        <span class="text-sm font-medium">Cargando modelo...</span>
+      </div>
       <div id="css2d-overlay" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
-      <div id="terrain-info" class="absolute top-3 left-3 z-10 bg-black/60 backdrop-blur text-white text-xs px-3 py-2 rounded-lg border border-white/10 pointer-events-none">
+      <div id="terrain-info" class="absolute top-3 left-3 z-10 bg-terra-overlay/60 backdrop-blur text-terra-text text-xs px-3 py-2 rounded-lg border border-terra-divider/10 pointer-events-none">
         Cargando...
       </div>
       <div class="absolute top-3 right-3 z-10 flex flex-col gap-2">
-        <div class="bg-black/60 backdrop-blur px-3 py-2 rounded-lg border border-white/10 flex items-center gap-2">
-          <label class="text-xs text-gray-400">Textura:</label>
+        <div class="bg-terra-overlay/60 backdrop-blur px-3 py-2 rounded-lg border border-terra-divider/10 flex items-center gap-2">
+          <label class="text-xs text-terra-muted">Textura:</label>
           <select id="texture-select" class="geu-select text-xs py-1 min-w-[160px]">
             <option value="heatmap">Heatmap modelo</option>
             <option value="satellite">ESRI Satellite</option>
@@ -81,39 +86,44 @@ export async function initScene3D(containerId, initialModel, options = {}) {
             <option value="solid">Sólido (gris)</option>
           </select>
         </div>
-        <div class="bg-black/60 backdrop-blur px-3 py-2 rounded-lg border border-white/10 flex items-center gap-2">
-          <button id="ts-toggle" class="text-xs text-white font-medium bg-geu-accent/20 hover:bg-geu-accent/40 px-3 py-1.5 rounded transition-colors">
+        <div class="bg-terra-overlay/60 backdrop-blur px-3 py-2 rounded-lg border border-terra-divider/10 flex items-center gap-2">
+          <button id="ts-toggle" class="text-xs text-terra-text font-medium bg-geu-accent/20 hover:bg-geu-accent/40 px-3 py-1.5 rounded transition-colors">
             ▶ Serie temporal
           </button>
         </div>
-        <div class="bg-black/60 backdrop-blur px-3 py-2 rounded-lg border border-white/10 flex items-center gap-2">
-          <input id="show-occurrences-3d" type="checkbox" checked class="w-4 h-4 accent-geu-accent rounded border-white/30">
-          <label for="show-occurrences-3d" class="text-xs text-gray-300 font-medium">Mostrar ocurrencias</label>
+        <div class="bg-terra-overlay/60 backdrop-blur px-3 py-2 rounded-lg border border-terra-divider/10 flex items-center gap-2">
+          <input id="show-occurrences-3d" type="checkbox" checked class="w-4 h-4 accent-geu-accent rounded border-terra-divider/30">
+          <label for="show-occurrences-3d" class="text-xs text-terra-muted font-medium">Mostrar ocurrencias</label>
+        </div>
+        <div class="bg-terra-overlay/60 backdrop-blur px-3 py-2 rounded-lg border border-terra-divider/10 flex items-center gap-2">
+          <label class="text-xs text-terra-muted font-medium">Opacidad heatmap:</label>
+          <input id="heatmap-opacity-3d" type="range" min="0.1" max="1" step="0.05" value="0.7" class="w-24 accent-geu-accent">
+          <span id="heatmap-opacity-3d-val" class="text-xs text-terra-accent font-mono w-8 text-right">70%</span>
         </div>
       </div>
       <!-- Panel de animación serie temporal -->
-      <div id="ts-panel" class="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-black/70 backdrop-blur px-4 py-3 rounded-xl border border-white/10 hidden min-w-[340px]">
+      <div id="ts-panel" class="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-terra-overlay/70 backdrop-blur px-4 py-3 rounded-xl border border-terra-divider/10 hidden min-w-[340px]">
         <div class="flex items-center justify-center gap-2 mb-2">
-          <button id="ts-mode-temporal" class="ts-mode-btn flex-1 py-1.5 rounded text-xs font-medium bg-geu-accent text-white">Temporal</button>
-          <button id="ts-mode-scenarios" class="ts-mode-btn flex-1 py-1.5 rounded text-xs font-medium bg-gray-700 text-gray-300 hover:bg-gray-600">Escenarios</button>
+          <button id="ts-mode-temporal" class="ts-mode-btn flex-1 py-1.5 rounded text-xs font-medium bg-geu-accent text-terra-text">Temporal</button>
+          <button id="ts-mode-scenarios" class="ts-mode-btn flex-1 py-1.5 rounded text-xs font-medium bg-terra-surface-light text-terra-muted hover:bg-gray-600">Escenarios</button>
         </div>
         <div class="flex items-center justify-between gap-3 mb-2">
-          <span id="ts-param-label" class="text-[10px] uppercase tracking-wider text-gray-400 font-medium">SSP</span>
+          <span id="ts-param-label" class="text-[10px] uppercase tracking-wider text-terra-muted font-medium">SSP</span>
           <select id="ts-param" class="geu-select text-xs py-1 min-w-[160px]"></select>
         </div>
         <div class="flex items-center justify-center gap-2 mb-2">
-          <button id="ts-prev" class="px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-white text-xs">◀ Ant</button>
-          <button id="ts-play" class="px-3 py-1 rounded bg-geu-accent hover:bg-blue-600 text-white text-xs font-medium min-w-[70px]">▶ Play</button>
-          <button id="ts-next" class="px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-white text-xs">Sig ▶</button>
+          <button id="ts-prev" class="px-2 py-1 rounded bg-terra-surface-light hover:bg-gray-600 text-terra-text text-xs">◀ Ant</button>
+          <button id="ts-play" class="px-3 py-1 rounded bg-geu-accent hover:bg-terra-accent-hover text-terra-text text-xs font-medium min-w-[70px]">▶ Play</button>
+          <button id="ts-next" class="px-2 py-1 rounded bg-terra-surface-light hover:bg-gray-600 text-terra-text text-xs">Sig ▶</button>
         </div>
         <div id="ts-timeline" class="flex items-center gap-1"></div>
       </div>
       <!-- Leyenda del heatmap -->
-      <div id="scene3d-legend" class="absolute bottom-6 left-6 z-10 bg-black/60 backdrop-blur px-3 py-2 rounded-lg border border-white/10 pointer-events-none hidden">
-        <div class="text-[10px] text-gray-400 font-medium text-center mb-1">Probabilidad</div>
+      <div id="scene3d-legend" class="absolute bottom-6 left-6 z-10 bg-terra-overlay/60 backdrop-blur px-3 py-2 rounded-lg border border-terra-divider/10 pointer-events-none hidden">
+        <div class="text-[10px] text-terra-muted font-medium text-center mb-1">Probabilidad</div>
         <div class="flex gap-1">
-          <canvas id="scene3d-legend-canvas" width="20" height="150" class="rounded border border-white/10"></canvas>
-          <div class="flex flex-col justify-between text-[10px] text-gray-300 font-mono py-0.5">
+          <canvas id="scene3d-legend-canvas" width="20" height="150" class="rounded border border-terra-divider/10"></canvas>
+          <div class="flex flex-col justify-between text-[10px] text-terra-muted font-mono py-0.5">
             <span>1.0</span>
             <span>0.5</span>
             <span>0.0</span>
@@ -121,24 +131,53 @@ export async function initScene3D(containerId, initialModel, options = {}) {
         </div>
         <div class="mt-2 flex items-center justify-center gap-2">
           <canvas id="scene3d-occurrence-icon" width="14" height="14" class="rounded-full"></canvas>
-          <span class="text-[10px] text-gray-300">Ocurrencias</span>
+          <span class="text-[10px] text-terra-muted">Ocurrencias</span>
         </div>
       </div>
       <!-- Tooltip de picking -->
-      <div id="scene3d-picker-card" class="absolute z-10 bg-black/80 backdrop-blur px-3 py-2 rounded-lg border border-white/10 text-white text-xs hidden max-w-[220px] pointer-events-none">
-        <div class="font-semibold text-teal-400 mb-1">Punto seleccionado</div>
-        <div id="scene3d-picker-coords" class="font-mono text-[11px] text-gray-300 leading-tight"></div>
-        <div id="scene3d-picker-elev" class="font-mono text-[11px] text-gray-300 mt-1"></div>
+      <div id="scene3d-picker-card" class="absolute z-10 bg-terra-overlay/80 backdrop-blur px-3 py-2 rounded-lg border border-terra-divider/10 text-terra-text text-xs hidden max-w-[220px] pointer-events-none">
+        <div class="font-semibold text-terra-accent mb-1">Punto seleccionado</div>
+        <div id="scene3d-picker-coords" class="font-mono text-[11px] text-terra-muted leading-tight"></div>
+        <div id="scene3d-picker-elev" class="font-mono text-[11px] text-terra-muted mt-1"></div>
         <div class="flex items-center gap-2 mt-1">
-          <div id="scene3d-picker-color" class="w-4 h-4 rounded border border-white/20 shrink-0"></div>
-          <span id="scene3d-picker-hex" class="font-mono text-[11px] text-gray-300"></span>
+          <div id="scene3d-picker-color" class="w-4 h-4 rounded border border-terra-divider/20 shrink-0"></div>
+          <span id="scene3d-picker-hex" class="font-mono text-[11px] text-terra-muted"></span>
         </div>
+      </div>
+      <!-- Mini mapa de situación -->
+      <div id="scene3d-overview" class="absolute bottom-6 right-6 z-10 w-[240px] h-[160px] pointer-events-auto hidden sm:block"></div>
+      <!-- Coordenadas del cursor -->
+      <div id="scene3d-coords" class="absolute bottom-2 left-2 z-10 bg-terra-overlay/60 backdrop-blur px-2 py-1 rounded text-[10px] text-terra-muted font-mono pointer-events-none">
+        Lat: —  Lon: —  Elev: —
       </div>
     </div>
   `;
 
   const infoEl = container.querySelector('#terrain-info');
+  const loadingEl = container.querySelector('#scene3d-loading');
   const cloudSelect = container.querySelector('#cloud-select');
+  const coords3dDiv = container.querySelector('#scene3d-coords');
+
+  let loadingTimeout = null;
+  function showLoading() {
+    if (loadingEl) loadingEl.classList.remove('hidden');
+    // Ocultar ocurrencias antiguas inmediatamente para que no se vean flotando
+    // mientras se recarga el modelo.
+    if (occurrenceGroup) occurrenceGroup.visible = false;
+    // Seguridad: si algo se cuelga, ocultar el loading a los 12 segundos.
+    if (loadingTimeout) clearTimeout(loadingTimeout);
+    loadingTimeout = setTimeout(() => {
+      console.warn('[Scene3D] Loading timeout: ocultando pantalla de carga por seguridad');
+      hideLoading();
+    }, 12000);
+  }
+  function hideLoading() {
+    if (loadingEl) loadingEl.classList.add('hidden');
+    if (loadingTimeout) {
+      clearTimeout(loadingTimeout);
+      loadingTimeout = null;
+    }
+  }
 
   // === THREE.JS BASE ===
   const scene = new THREE.Scene();
@@ -153,7 +192,7 @@ export async function initScene3D(containerId, initialModel, options = {}) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   renderer.shadowMap.enabled = false;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 0.6;
+  renderer.toneMappingExposure = 0.85;
   container.querySelector('#three-canvas').appendChild(renderer.domElement);
 
   const css2dRenderer = new CSS2DRenderer();
@@ -172,8 +211,8 @@ export async function initScene3D(containerId, initialModel, options = {}) {
   controls.screenSpacePanning = false;
 
   // === LUCES ===
-  scene.add(new THREE.AmbientLight(0xffffff, 0.25));
-  const sun = new THREE.DirectionalLight(0xfff5e6, 0.7);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+  const sun = new THREE.DirectionalLight(0xfff5e6, 0.9);
   sun.position.set(200, 400, 150);
   scene.add(sun);
   scene.add(new THREE.DirectionalLight(0xcceeff, 0.15).position.set(-150, 100, -150));
@@ -201,6 +240,8 @@ export async function initScene3D(containerId, initialModel, options = {}) {
   let currentImgData = null;
   let currentHeatmapBBox = null;
   let currentHeatmapTexture = null;
+  let cachedSatelliteTexture = null;
+  let cachedSatelliteKey = null;
 
   // === ANIMACIÓN SERIE TEMPORAL ===
   let animationState = {
@@ -235,6 +276,7 @@ export async function initScene3D(containerId, initialModel, options = {}) {
       const demData = await loadDEM(baseUrl);
       refLat = (demData.bbox.north + demData.bbox.south) / 2;
       currentBBox = demData.bbox;
+      renderOverviewMap(container.querySelector('#scene3d-overview'), currentBBox);
 
       const { geometry, widthMeters, heightMeters, minElevation, maxElevation } =
         createTerrainGeometry(demData, 1.8);
@@ -261,7 +303,7 @@ export async function initScene3D(containerId, initialModel, options = {}) {
       terrainHeightMeters = heightMeters;
       const range = maxElevation - minElevation;
       infoEl.innerHTML = `
-        <div class="font-semibold text-teal-400 mb-1">Terreno DEM cargado</div>
+        <div class="font-semibold text-terra-accent mb-1">Terreno DEM cargado</div>
         <div>${demData.width}×${demData.height} px</div>
         <div>Elev: ${minElevation.toFixed(0)} – ${maxElevation.toFixed(0)} m</div>
         <div>Δh: ${range.toFixed(0)} m</div>
@@ -346,8 +388,11 @@ export async function initScene3D(containerId, initialModel, options = {}) {
     const paths = getPaths(index, model.species.id, model.algorithm.id, model.scenario);
     if (!paths.png) return null;
 
-    const texture = preloadedTexture || await loadTexture(paths.png);
+    const texture = preloadedTexture || await loadTexture(paths.png, { flipY: false });
     if (!texture) return null;
+    // Los PNGs de probabilidad son south-up respecto a la geometría north-up;
+    // flipY=false los alinea correctamente.
+    texture.flipY = false;
     currentHeatmapTexture = texture;
 
     if (!heatmapMesh) {
@@ -497,8 +542,6 @@ export async function initScene3D(containerId, initialModel, options = {}) {
 
     occurrenceGroup = new THREE.Group();
 
-    const markerSize = Math.max(terrainWidthMeters, terrainHeightMeters) * 0.012;
-
     // Centrar las ocurrencias respecto al bbox del DEM, igual que el terreno.
     const centerLon = (currentBBox.west + currentBBox.east) / 2;
     const centerLat = (currentBBox.south + currentBBox.north) / 2;
@@ -520,6 +563,11 @@ export async function initScene3D(containerId, initialModel, options = {}) {
       }
 
       const m = lonLatToMeters(lon, lat, refLat);
+      const x = m.x - centerM.x;
+      // El mesh del terreno está rotado -90° en X: el eje Y original (norte)
+      // de la geometría se proyecta en -Z. Por eso latitud positiva (norte)
+      // debe ir hacia Z negativo.
+      const z = -(m.y - centerM.y);
       const elev = getElevationAtLonLat(lon, lat);
       const y = elev !== null ? (elev - terrainMinElevation) * 1.8 : 0;
 
@@ -535,7 +583,7 @@ export async function initScene3D(containerId, initialModel, options = {}) {
       `;
 
       const marker = new CSS2DObject(anchor);
-      marker.position.set(m.x - centerM.x, y, m.y - centerM.y);
+      marker.position.set(x, y, z);
       occurrenceGroup.add(marker);
     });
 
@@ -546,12 +594,12 @@ export async function initScene3D(containerId, initialModel, options = {}) {
   // === CARGAR NUBE DE PUNTOS ===
   async function loadPointCloudScene() {
     const cloudInfo = infoEl.querySelector('#cloud-info');
-    if (cloudInfo) cloudInfo.innerHTML = '<span class="text-gray-400">Cargando nube...</span>';
+    if (cloudInfo) cloudInfo.innerHTML = '<span class="text-terra-muted">Cargando nube...</span>';
 
     try {
       const data = await loadPointCloud(currentCloudUrl);
       if (!data) {
-        if (cloudInfo) cloudInfo.innerHTML = '<span class="text-gray-500">Sin nube</span>';
+        if (cloudInfo) cloudInfo.innerHTML = '<span class="text-terra-subtle">Sin nube</span>';
         return;
       }
 
@@ -670,7 +718,7 @@ export async function initScene3D(containerId, initialModel, options = {}) {
       worldGroup.add(pointCloudMesh);
 
       if (cloudInfo) {
-        cloudInfo.innerHTML = `<div class="mt-1 text-teal-300">Nube: ${rawCount.toLocaleString()} pts mostrados</div>`;
+        cloudInfo.innerHTML = `<div class="mt-1 text-terra-accent">Nube: ${rawCount.toLocaleString()} pts mostrados</div>`;
       }
     } catch (err) {
       console.error('[Scene3D] Error cargando nube:', err);
@@ -721,7 +769,7 @@ export async function initScene3D(containerId, initialModel, options = {}) {
     // Precargar escenario actual primero
     const actualScenario = { id: 'actual', label: 'Actual (Presente)', folder: 'current', suffix: 'Actual' };
     const actualPaths = getPaths(index, model.species.id, model.algorithm.id, actualScenario);
-    const actualTex = await loadTexture(actualPaths.png);
+    const actualTex = await loadTexture(actualPaths.png, { flipY: false });
     if (actualTex) animationState.textures.set('actual', actualTex);
 
     if (animationState.mode === 'temporal') {
@@ -732,7 +780,7 @@ export async function initScene3D(containerId, initialModel, options = {}) {
         const scenario = buildScenario(model.species.id, model.algorithm.id, sspId, item.id);
         if (!scenario) continue;
         const paths = getPaths(index, model.species.id, model.algorithm.id, scenario);
-        const tex = await loadTexture(paths.png);
+        const tex = await loadTexture(paths.png, { flipY: false });
         if (tex) animationState.textures.set(item.id, tex);
       }
     } else {
@@ -743,18 +791,21 @@ export async function initScene3D(containerId, initialModel, options = {}) {
         const scenario = buildScenario(model.species.id, model.algorithm.id, item.id, periodId);
         if (!scenario) continue;
         const paths = getPaths(index, model.species.id, model.algorithm.id, scenario);
-        const tex = await loadTexture(paths.png);
+        const tex = await loadTexture(paths.png, { flipY: false });
         if (tex) animationState.textures.set(item.id, tex);
       }
     }
   }
 
-  async function loadTexture(url) {
+  async function loadTexture(url, { flipY = false } = {}) {
     return new Promise((resolve) => {
-      new THREE.TextureLoader().load(
+      const loader = new THREE.TextureLoader();
+      loader.setCrossOrigin('anonymous');
+      loader.load(
         url,
         (t) => {
           t.colorSpace = THREE.SRGBColorSpace;
+          t.flipY = flipY;
           t.magFilter = THREE.LinearFilter;
           t.minFilter = THREE.LinearFilter;
           t.anisotropy = renderer.capabilities.getMaxAnisotropy();
@@ -845,7 +896,7 @@ export async function initScene3D(containerId, initialModel, options = {}) {
       const hasData = animationState.textures.has(item.id);
       const active = i === animationState.itemIdx;
       return `
-        <button class="ts-timeline-btn flex-1 py-2 rounded text-xs font-medium transition-colors ${active ? 'bg-geu-accent text-white' : (hasData ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-800 text-gray-600 cursor-not-allowed')}" data-idx="${i}" ${!hasData ? 'disabled' : ''}>
+        <button class="ts-timeline-btn flex-1 py-2 rounded text-xs font-medium transition-colors ${active ? 'bg-geu-accent text-terra-text' : (hasData ? 'bg-terra-surface-light text-terra-muted hover:bg-gray-600' : 'bg-terra-surface text-terra-dim cursor-not-allowed')}" data-idx="${i}" ${!hasData ? 'disabled' : ''}>
           ${item.label}
         </button>
       `;
@@ -892,11 +943,11 @@ export async function initScene3D(containerId, initialModel, options = {}) {
     const btnSce = container.querySelector('#ts-mode-scenarios');
     if (!btnTemp || !btnSce) return;
     if (animationState.mode === 'temporal') {
-      btnTemp.className = 'ts-mode-btn flex-1 py-1.5 rounded text-xs font-medium bg-geu-accent text-white';
-      btnSce.className = 'ts-mode-btn flex-1 py-1.5 rounded text-xs font-medium bg-gray-700 text-gray-300 hover:bg-gray-600';
+      btnTemp.className = 'ts-mode-btn flex-1 py-1.5 rounded text-xs font-medium bg-geu-accent text-terra-text';
+      btnSce.className = 'ts-mode-btn flex-1 py-1.5 rounded text-xs font-medium bg-terra-surface-light text-terra-muted hover:bg-gray-600';
     } else {
-      btnTemp.className = 'ts-mode-btn flex-1 py-1.5 rounded text-xs font-medium bg-gray-700 text-gray-300 hover:bg-gray-600';
-      btnSce.className = 'ts-mode-btn flex-1 py-1.5 rounded text-xs font-medium bg-geu-accent text-white';
+      btnTemp.className = 'ts-mode-btn flex-1 py-1.5 rounded text-xs font-medium bg-terra-surface-light text-terra-muted hover:bg-gray-600';
+      btnSce.className = 'ts-mode-btn flex-1 py-1.5 rounded text-xs font-medium bg-geu-accent text-terra-text';
     }
     const label = container.querySelector('#ts-param-label');
     if (label) label.textContent = getParamLabel();
@@ -934,13 +985,52 @@ export async function initScene3D(containerId, initialModel, options = {}) {
   if (terrainInfo) {
     if (initialModel) {
       await updateHeatmapBBoxFromScenario(initialModel);
-      await loadHeatmap(initialModel);
+      await applyTerrainTexture('heatmap', initialModel);
     }
     if (cloudOptions.some(o => o.url)) await loadPointCloudScene();
   }
 
+  // === CARGAR TEXTURA SATELITE (con caché y reintento) ===
+  async function loadSatelliteTexture(attempt = 1) {
+    if (!currentBBox || !demWidth || !demHeight) return null;
+    const key = `${currentBBox.west.toFixed(6)},${currentBBox.south.toFixed(6)},${currentBBox.east.toFixed(6)},${currentBBox.north.toFixed(6)}|${demWidth}x${demHeight}`;
+    if (cachedSatelliteTexture && cachedSatelliteKey === key) return cachedSatelliteTexture;
+
+    const bbox = currentBBox;
+    const w = Math.min(2048, Math.round(demWidth * 2));
+    const h = Math.min(2048, Math.round(demHeight * 2));
+    const url = `https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${bbox.west},${bbox.south},${bbox.east},${bbox.north}&bboxSR=4326&imageSR=4326&size=${w},${h}&format=png&f=image`;
+
+    return new Promise((resolve) => {
+      const loader = new THREE.TextureLoader();
+      loader.setCrossOrigin('anonymous');
+      loader.load(
+        url,
+        (t) => {
+          t.colorSpace = THREE.SRGBColorSpace;
+          // Geometría north-up: uv.y=1 = norte. Las imágenes north-up se alinean
+          // con el valor por defecto flipY=true.
+          t.flipY = true;
+          cachedSatelliteTexture = t;
+          cachedSatelliteKey = key;
+          console.log('[Scene3D] Satellite texture cargada:', url);
+          resolve(t);
+        },
+        undefined,
+        (err) => {
+          console.warn(`[Scene3D] Error cargando satellite texture (intento ${attempt}):`, err);
+          if (attempt < 2) {
+            setTimeout(() => resolve(loadSatelliteTexture(attempt + 1)), 600);
+          } else {
+            resolve(null);
+          }
+        }
+      );
+    });
+  }
+
   // === APLICAR TEXTURA AL TERRENO ===
-  async function applyTerrainTexture(type, scenario) {
+  async function applyTerrainTexture(type, scenario, { skipHeatmap = false } = {}) {
     if (!terrainMesh || !demElevations) return;
     currentTextureType = type;
 
@@ -955,7 +1045,7 @@ export async function initScene3D(containerId, initialModel, options = {}) {
 
     if (type === 'solid') {
       terrainMesh.material.map = null;
-      terrainMesh.material.color.setHex(0x444444);
+      terrainMesh.material.color.setHex(0x999999);
       terrainMesh.material.needsUpdate = true;
       return;
     }
@@ -964,6 +1054,9 @@ export async function initScene3D(containerId, initialModel, options = {}) {
       const canvas = createHillshadeTexture(demElevations, demWidth, demHeight, 2.5);
       const tex = new THREE.CanvasTexture(canvas);
       tex.colorSpace = THREE.SRGBColorSpace;
+      // Geometría north-up: el hillshade generado a partir del DEM es north-up,
+      // así que se alinea con flipY=true.
+      tex.flipY = true;
       terrainMesh.material.map = tex;
       terrainMesh.material.color.setHex(0xffffff);
       terrainMesh.material.needsUpdate = true;
@@ -971,16 +1064,7 @@ export async function initScene3D(containerId, initialModel, options = {}) {
     }
 
     if (type === 'satellite') {
-      const bbox = currentBBox;
-      const w = Math.min(2048, Math.round(demWidth * 2));
-      const h = Math.min(2048, Math.round(demHeight * 2));
-      const url = `https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${bbox.west},${bbox.south},${bbox.east},${bbox.north}&bboxSR=4326&imageSR=4326&size=${w},${h}&format=png&f=image`;
-      const tex = await new Promise((resolve) => {
-        new THREE.TextureLoader().load(url, (t) => {
-          t.colorSpace = THREE.SRGBColorSpace;
-          resolve(t);
-        }, undefined, () => resolve(null));
-      });
+      const tex = await loadSatelliteTexture();
       if (tex) {
         terrainMesh.material.map = tex;
         terrainMesh.material.color.setHex(0xffffff);
@@ -991,12 +1075,25 @@ export async function initScene3D(containerId, initialModel, options = {}) {
       return;
     }
 
-    // heatmap: usar overlay flotante (loadHeatmap) en lugar de textura base
+    // heatmap: terreno base de ESRI Satellite + overlay flotante
     if (scenario) {
-      terrainMesh.material.map = null;
-      terrainMesh.material.color.setHex(0x888888);
+      const satTex = await loadSatelliteTexture();
+      if (satTex) {
+        terrainMesh.material.map = satTex;
+        terrainMesh.material.color.setHex(0xffffff);
+      } else {
+        // Fallback: si el satélite no carga, usar hillshade del DEM para no quedar en gris plano
+        const hillCanvas = createHillshadeTexture(demElevations, demWidth, demHeight, 2.5);
+        const hillTex = new THREE.CanvasTexture(hillCanvas);
+        hillTex.colorSpace = THREE.SRGBColorSpace;
+        hillTex.flipY = true;
+        terrainMesh.material.map = hillTex;
+        terrainMesh.material.color.setHex(0xffffff);
+      }
       terrainMesh.material.needsUpdate = true;
-      await loadHeatmap(scenario);
+      if (!skipHeatmap) {
+        await loadHeatmap(scenario);
+      }
     }
   }
 
@@ -1022,8 +1119,8 @@ export async function initScene3D(containerId, initialModel, options = {}) {
   function getElevationAtUV(uv) {
     if (!demElevations || !demWidth || !demHeight) return null;
     if (!uv || uv.x < 0 || uv.x > 1 || uv.y < 0 || uv.y > 1) return null;
+    // Geometría north-up: uv.y=1 es norte (fila 0 del DEM), uv.y=0 es sur.
     const col = Math.floor(uv.x * (demWidth - 1));
-    // row=0 del DEM es norte; uv.y=0 es sur.
     const row = Math.floor((1 - uv.y) * (demHeight - 1));
     const idx = row * demWidth + col;
     const v = demElevations[idx];
@@ -1036,22 +1133,35 @@ export async function initScene3D(containerId, initialModel, options = {}) {
     const u = (lon - currentBBox.west) / (currentBBox.east - currentBBox.west);
     const v = (lat - currentBBox.south) / (currentBBox.north - currentBBox.south);
     if (u < 0 || u > 1 || v < 0 || v > 1) return null;
-    // row 0 del DEM corresponde al norte
-    const col = Math.floor(u * (demWidth - 1));
-    const row = Math.floor((1 - v) * (demHeight - 1));
-    const idx = row * demWidth + col;
-    const val = demElevations[idx];
-    if (isNaN(val) || val <= -9999) return null;
-    return val;
+    // Geometría north-up: uv.y=1 es norte (fila 0 del DEM), uv.y=0 es sur.
+    const x = u * (demWidth - 1);
+    const y = (1 - v) * (demHeight - 1);
+    const x0 = Math.floor(x);
+    const x1 = Math.min(x0 + 1, demWidth - 1);
+    const y0 = Math.floor(y);
+    const y1 = Math.min(y0 + 1, demHeight - 1);
+    const fx = x - x0;
+    const fy = y - y0;
+
+    const idx00 = y0 * demWidth + x0;
+    const idx10 = y0 * demWidth + x1;
+    const idx01 = y1 * demWidth + x0;
+    const idx11 = y1 * demWidth + x1;
+
+    const vals = [demElevations[idx00], demElevations[idx10], demElevations[idx01], demElevations[idx11]];
+    if (vals.some((val) => isNaN(val) || val <= -9999)) return null;
+
+    const v0 = vals[0] * (1 - fx) + vals[1] * fx;
+    const v1 = vals[2] * (1 - fx) + vals[3] * fx;
+    return v0 * (1 - fy) + v1 * fy;
   }
 
   function getElevationFromPoint(point) {
     // Fallback: deshacer la exageración aplicada en createTerrainGeometry
     if (!terrainMesh || terrainMinElevation === undefined) return null;
     // La geometría local tiene z = (elev - minEl) * exaggeration
-    // El mesh está rotado -90° en X, por lo que la coordenada Y del mundo
-    // corresponde a la Z local (elevación escalada).
-    const localZ = point.y;
+    const localPoint = terrainMesh.worldToLocal(point.clone());
+    const localZ = localPoint.z;
     const exaggeration = 1.8;
     const elev = localZ / exaggeration + terrainMinElevation;
     return isNaN(elev) ? null : elev;
@@ -1103,7 +1213,7 @@ export async function initScene3D(containerId, initialModel, options = {}) {
       if (currentImgData) currentImgData.url = currentScenarioPng;
     }
     if (currentImgData) {
-      const { px, py } = pixelCoordsFromLonLat(lon, lat, bboxForPng, currentImgData.width, currentImgData.height, true);
+      const { px, py } = pixelCoordsFromLonLat(lon, lat, bboxForPng, currentImgData.width, currentImgData.height, false);
       const col = samplePixel(currentImgData.ctx, px, py, currentImgData.width, currentImgData.height);
       if (col) {
         hex = rgbToHex(col.r, col.g, col.b);
@@ -1165,6 +1275,31 @@ export async function initScene3D(containerId, initialModel, options = {}) {
     e.preventDefault();
   }, { passive: false });
 
+  // === COORDENADAS DEL CURSOR EN TIEMPO REAL ===
+  let lastCoordsPick = 0;
+  renderer.domElement.addEventListener('pointermove', (e) => {
+    const now = performance.now();
+    if (now - lastCoordsPick < 80) return;
+    lastCoordsPick = now;
+    if (!terrainMesh || !currentBBox || !coords3dDiv) return;
+    const rect = renderer.domElement.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    const mouse = new THREE.Vector2(x, y);
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObject(terrainMesh);
+    if (intersects.length === 0) {
+      coords3dDiv.textContent = 'Lat: —  Lon: —  Elev: —';
+      return;
+    }
+    const uv = intersects[0].uv;
+    const lon = currentBBox.west + uv.x * (currentBBox.east - currentBBox.west);
+    const lat = currentBBox.south + uv.y * (currentBBox.north - currentBBox.south);
+    const elev = getElevationAtUV(uv);
+    coords3dDiv.textContent = `Lat: ${lat.toFixed(4)}°  Lon: ${lon.toFixed(4)}°  Elev: ${formatElevation(elev)}`;
+  });
+
   // Wrapper que ignora clicks que fueron parte de un drag
   function onSceneClickWrapper(event) {
     if (isDragging) {
@@ -1189,14 +1324,20 @@ export async function initScene3D(containerId, initialModel, options = {}) {
 
   async function applyModel(model) {
     if (!model) return;
-    currentModel = model;
-
-    // Recargar terreno y nubes solo si cambió especie o algoritmo
     const speciesChanged = model.species?.id !== currentSpeciesId;
     const algoChanged = model.algorithm?.id !== currentAlgoId;
-    if ((speciesChanged || algoChanged) && model.species && model.algorithm) {
-      currentSpeciesId = model.species.id;
-      currentAlgoId = model.algorithm.id;
+    const isHeavyLoad = !terrainMesh || speciesChanged || algoChanged;
+    console.log('[Scene3D] applyModel start', model.species?.id, model.algorithm?.id, model.scenario?.id, 'heavy=', isHeavyLoad);
+    if (isHeavyLoad) showLoading();
+    try {
+      currentModel = model;
+
+      // Recargar terreno y nubes solo si cambió especie o algoritmo
+      const speciesOrAlgoChanged = speciesChanged || algoChanged;
+      if (speciesOrAlgoChanged && model.species && model.algorithm) {
+        currentSpeciesId = model.species.id;
+        currentAlgoId = model.algorithm.id;
+        console.log('[Scene3D] Recargando terreno y nubes...');
 
       // Recargar DEM específico para la nueva especie/algoritmo
       const newTerrainBase = getTerrainBase(currentSpeciesId, currentAlgoId);
@@ -1215,6 +1356,7 @@ export async function initScene3D(containerId, initialModel, options = {}) {
           heatmapMesh = null;
         }
         await loadTerrain(newTerrainBase);
+        console.log('[Scene3D] Terreno cargado');
       } catch (e) {
         console.warn(`[Scene3D] DEM específico no disponible en ${newTerrainBase}, usando DEM global.`);
         try {
@@ -1225,6 +1367,7 @@ export async function initScene3D(containerId, initialModel, options = {}) {
       }
 
       const newOptions = await loadCloudOptions(currentSpeciesId, currentAlgoId);
+      console.log('[Scene3D] Opciones nube:', newOptions.length);
       if (newOptions.length) {
         cloudOptions = newOptions;
         // Actualizar selector de nubes
@@ -1241,35 +1384,47 @@ export async function initScene3D(containerId, initialModel, options = {}) {
           pointCloudMesh = null;
         }
         await loadPointCloudScene();
+        console.log('[Scene3D] Nube cargada');
       }
       // Resetear animación al cambiar especie/algoritmo
       stopAnimation();
       animationState.textures.clear();
     }
 
+    console.log('[Scene3D] Aplicando textura...');
     currentScenarioPng = model.paths?.png || null;
     await updateHeatmapBBoxFromScenario(model);
     await updateLegend();
     const animPanelVisible = tsPanel && !tsPanel.classList.contains('hidden');
-    if (currentTextureType === 'heatmap' && !animPanelVisible) {
-      await loadHeatmap(model);
-    } else if (currentTextureType !== 'heatmap') {
-      if (heatmapMesh) {
-        worldGroup.remove(heatmapMesh);
-        heatmapMesh.geometry.dispose();
-        heatmapMesh.material.map?.dispose();
-        heatmapMesh.material.dispose();
-        heatmapMesh = null;
-      }
-      await applyTerrainTexture(currentTextureType, model);
+
+    // Aplicar siempre la textura base; si la animación está activa se omite el heatmap estático
+    console.log('[Scene3D] applyTerrainTexture start');
+    await applyTerrainTexture(currentTextureType, model, { skipHeatmap: animPanelVisible });
+    console.log('[Scene3D] applyTerrainTexture end');
+
+    // Si no estamos en modo heatmap, asegurar que no queda overlay flotante
+    if (currentTextureType !== 'heatmap' && heatmapMesh) {
+      worldGroup.remove(heatmapMesh);
+      heatmapMesh.geometry.dispose();
+      heatmapMesh.material.map?.dispose();
+      heatmapMesh.material.dispose();
+      heatmapMesh = null;
     }
 
     // Cargar/ocultar marcadores de ocurrencias
+    console.log('[Scene3D] loadOccurrences3D start');
     await loadOccurrences3D(model);
+    console.log('[Scene3D] loadOccurrences3D end');
 
     // Si el panel de animación está activo, sincronizar SSP y mostrar timeline
     if (animPanelVisible) {
       await initAnimationForModel(model);
+    }
+    console.log('[Scene3D] applyModel end');
+    } catch (err) {
+      console.error('[Scene3D] Error aplicando modelo:', err);
+    } finally {
+      if (isHeavyLoad) hideLoading();
     }
   }
 
@@ -1329,6 +1484,19 @@ export async function initScene3D(containerId, initialModel, options = {}) {
     showOccurrencesCheck.addEventListener('change', (e) => {
       showOccurrences = e.target.checked;
       if (occurrenceGroup) occurrenceGroup.visible = showOccurrences;
+    });
+  }
+
+  // Opacidad del heatmap en 3D
+  const heatmapOpacityInput = container.querySelector('#heatmap-opacity-3d');
+  const heatmapOpacityVal = container.querySelector('#heatmap-opacity-3d-val');
+  if (heatmapOpacityInput) {
+    heatmapOpacityInput.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value);
+      if (heatmapMesh?.material?.uniforms?.uOpacity) {
+        heatmapMesh.material.uniforms.uOpacity.value = val;
+      }
+      if (heatmapOpacityVal) heatmapOpacityVal.textContent = Math.round(val * 100) + '%';
     });
   }
 
@@ -1487,6 +1655,8 @@ export async function initScene3D(containerId, initialModel, options = {}) {
       );
     });
   }
+
+  if (!initialModel) hideLoading();
 
   return { applyModel, exportPNG, exportGLB };
 }

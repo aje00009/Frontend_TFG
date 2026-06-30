@@ -17,13 +17,13 @@ export function initHero() {
         <span class="text-gradient">TerraPredict</span>
       </h1>
       
-      <p class="text-lg md:text-xl text-stone-400 mb-6 max-w-2xl mx-auto leading-relaxed reveal reveal-delay-2">
+      <p class="text-lg md:text-xl text-terra-muted mb-6 max-w-2xl mx-auto leading-relaxed reveal reveal-delay-2">
         Plataforma interactiva para la predicción de la distribución de especies forestales 
         bajo escenarios climáticos futuros. Visualiza, analiza y compara el impacto del cambio 
         climático en el hábitat de especies clave a escala regional.
       </p>
 
-      <div class="flex flex-wrap justify-center gap-4 text-sm text-stone-500 reveal reveal-delay-3">
+      <div class="flex flex-wrap justify-center gap-4 text-sm text-terra-subtle reveal reveal-delay-3">
         <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-terra-accent"></span>Modelos SDM</span>
         <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-terra-accent-warm"></span>Escenarios SSP</span>
         <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-teal-400"></span>Visor 2D/3D</span>

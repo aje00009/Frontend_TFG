@@ -1,6 +1,7 @@
 import * as Cesium from 'cesium';
 import { loadSpeciesIndex, getPaths, getScenarios } from '../utils/config.js';
 import { getFlippedImageCanvas, loadRasterBBox } from '../utils/pickerUtils.js';
+import { getCesiumBackgroundColor } from '../utils/theme.js';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 
 async function createHeatmapMaterialCesium(imageUrl, alpha) {
@@ -32,7 +33,7 @@ async function createViewer2D(containerId) {
   });
 
   viewer.scene.globe.depthTestAgainstTerrain = true;
-  viewer.scene.backgroundColor = Cesium.Color.fromCssColorString('#232323');
+  viewer.scene.backgroundColor = Cesium.Color.fromCssColorString(getCesiumBackgroundColor());
 
   // Capa base por defecto: ESRI Satellite
   viewer.imageryLayers.addImageryProvider(
@@ -90,22 +91,42 @@ async function updateHeatmapAlpha2D(viewer, alpha) {
 }
 
 function syncCameras(v1, v2) {
+  let sourceViewer = null;
+  let needsSync = false;
   let syncing = false;
-  function sync(source, target) {
+
+  function markChanged(viewer) {
     if (syncing) return;
-    syncing = true;
-    target.camera.setView({
-      destination: source.camera.position.clone(),
-      orientation: {
-        heading: source.camera.heading,
-        pitch: source.camera.pitch,
-        roll: source.camera.roll,
-      }
-    });
-    syncing = false;
+    sourceViewer = viewer;
+    needsSync = true;
   }
-  v1.camera.changed.addEventListener(() => sync(v1, v2));
-  v2.camera.changed.addEventListener(() => sync(v2, v1));
+
+  v1.camera.changed.addEventListener(() => markChanged(v1));
+  v2.camera.changed.addEventListener(() => markChanged(v2));
+
+  // Reducir la frecuencia del evento changed para no saturar.
+  v1.camera.percentageChanged = 0.5;
+  v2.camera.percentageChanged = 0.5;
+
+  function loop() {
+    if (needsSync && sourceViewer) {
+      const target = sourceViewer === v1 ? v2 : v1;
+      syncing = true;
+      target.camera.setView({
+        destination: sourceViewer.camera.position.clone(),
+        orientation: {
+          heading: sourceViewer.camera.heading,
+          pitch: sourceViewer.camera.pitch,
+          roll: sourceViewer.camera.roll,
+        }
+      });
+      needsSync = false;
+      // Evitar que el setView del target dispare su propio changed y vuelva a sincronizar.
+      requestAnimationFrame(() => { syncing = false; });
+    }
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
 }
 
 function getAllScenarios(index, speciesId, algoId) {
@@ -127,30 +148,30 @@ export async function initSideBySideComparator(containerId, initialModel) {
 
   container.innerHTML = `
     <h2 class="text-3xl font-bold mb-2 text-center">Comparador Lado a Lado</h2>
-    <p class="text-center text-gray-400 mb-6">Compara escenarios visualmente en 2D.</p>
+    <p class="text-center text-terra-muted mb-6">Compara escenarios visualmente en 2D.</p>
     <div class="flex justify-center mb-4">
-      <div class="bg-black/40 backdrop-blur px-4 py-2 rounded-lg border border-white/10 flex items-center gap-3">
-        <label class="text-xs text-gray-400 uppercase tracking-wider font-medium">Opacidad heatmap:</label>
+      <div class="bg-terra-overlay/40 backdrop-blur px-4 py-2 rounded-lg border border-terra-divider/10 flex items-center gap-3">
+        <label class="text-xs text-terra-muted uppercase tracking-wider font-medium">Opacidad heatmap:</label>
         <input id="comp-2d-alpha" type="range" min="0" max="1" step="0.05" value="0.8" class="w-40 accent-geu-accent cursor-pointer">
-        <span id="comp-2d-alpha-value" class="text-xs text-gray-300 font-mono w-8 text-right">0.8</span>
+        <span id="comp-2d-alpha-value" class="text-xs text-terra-muted font-mono w-8 text-right">0.8</span>
       </div>
     </div>
     <div class="flex flex-col md:flex-row gap-2 h-auto md:h-[600px]">
-      <div class="w-full md:w-1/2 h-[400px] md:h-full relative rounded-xl overflow-hidden border border-white/10">
-        <div class="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-black/60 backdrop-blur px-3 py-1.5 rounded-lg border border-white/10 flex items-center gap-2 max-w-[90%]">
+      <div class="w-full md:w-1/2 h-[400px] md:h-full relative rounded-xl overflow-hidden border border-terra-divider/10">
+        <div class="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-terra-overlay/60 backdrop-blur px-3 py-1.5 rounded-lg border border-terra-divider/10 flex items-center gap-2 max-w-[90%]">
           <select id="comp-2d-left-scenario" class="geu-select text-xs py-1 min-w-0 w-[220px] sm:w-[280px]"></select>
         </div>
         <div id="comp-2d-left-map" class="w-full h-full"></div>
       </div>
-      <div class="w-full md:w-1/2 h-[400px] md:h-full relative rounded-xl overflow-hidden border border-white/10">
-        <div class="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-black/60 backdrop-blur px-3 py-1.5 rounded-lg border border-white/10 flex items-center gap-2 max-w-[90%]">
+      <div class="w-full md:w-1/2 h-[400px] md:h-full relative rounded-xl overflow-hidden border border-terra-divider/10">
+        <div class="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-terra-overlay/60 backdrop-blur px-3 py-1.5 rounded-lg border border-terra-divider/10 flex items-center gap-2 max-w-[90%]">
           <select id="comp-2d-right-scenario" class="geu-select text-xs py-1 min-w-0 w-[220px] sm:w-[280px]"></select>
         </div>
         <div id="comp-2d-right-map" class="w-full h-full"></div>
       </div>
     </div>
     <!-- Leyenda de colores -->
-    <div class="flex flex-wrap justify-center gap-4 mt-4 text-sm text-gray-300">
+    <div class="flex flex-wrap justify-center gap-4 mt-4 text-sm text-terra-muted">
       <div class="flex items-center gap-2"><span class="inline-block w-4 h-4 rounded" style="background: linear-gradient(to bottom, #00008B, #00BFFF);"></span> Baja probabilidad</div>
       <div class="flex items-center gap-2"><span class="inline-block w-4 h-4 rounded" style="background: linear-gradient(to bottom, #00BFFF, #7FFF00);"></span> Media-baja</div>
       <div class="flex items-center gap-2"><span class="inline-block w-4 h-4 rounded" style="background: linear-gradient(to bottom, #7FFF00, #FFD700);"></span> Media</div>
@@ -255,4 +276,10 @@ export async function initSideBySideComparator(containerId, initialModel) {
     rightSel.addEventListener('change', () => updatePanel(viewerRight, rightSel, getAlpha()));
     if (currentModel) updatePanel(viewerRight, rightSel, getAlpha());
   }
+
+  window.addEventListener('theme-changed', () => {
+    const color = getCesiumBackgroundColor();
+    if (viewerLeft) viewerLeft.scene.backgroundColor = Cesium.Color.fromCssColorString(color);
+    if (viewerRight) viewerRight.scene.backgroundColor = Cesium.Color.fromCssColorString(color);
+  });
 }

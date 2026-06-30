@@ -6,35 +6,44 @@ export async function initDiffMap(containerId) {
 
   container.innerHTML = `
     <h2 class="text-3xl font-bold mb-2 text-center">Mapa de Diferencias</h2>
-    <p class="text-center text-gray-400 mb-4">Comparación futuro vs actual: <span class="text-red-400 font-medium">rojo = pérdida</span>, <span class="text-green-400 font-medium">verde = ganancia</span>.</p>
-    <div class="flex justify-center gap-4 mb-6 flex-wrap">
-      <div class="bg-black/40 backdrop-blur px-4 py-2 rounded-lg border border-white/10 flex items-center gap-3">
-        <label class="text-xs text-gray-400 uppercase tracking-wider font-medium">Período:</label>
+    <p class="text-center text-terra-muted mb-4">Comparación futuro vs actual: <span class="text-red-500 font-medium">rojo = pérdida</span>, <span class="text-green-500 font-medium">verde = ganancia</span>.</p>
+    <div id="diff-model-info" class="flex justify-center mb-4 hidden">
+      <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-terra-surface border border-terra-border text-xs text-terra-text shadow-sm">
+        <span id="diff-info-species" class="font-semibold">—</span>
+        <span class="text-terra-muted">·</span>
+        <span id="diff-info-algo" class="text-terra-muted">—</span>
+        <span class="text-terra-muted">·</span>
+        <span id="diff-info-scenario" class="text-terra-accent font-medium">—</span>
+      </span>
+    </div>
+    <div class="flex justify-center gap-4 mb-4 flex-wrap">
+      <div class="bg-terra-overlay/40 backdrop-blur px-4 py-2 rounded-lg border border-terra-divider/10 flex items-center gap-3">
+        <label class="text-xs text-terra-muted uppercase tracking-wider font-medium">Período:</label>
         <select id="diff-period-select" class="geu-select text-xs py-1 min-w-[140px]">
           <option value="" disabled selected>Cargando...</option>
         </select>
       </div>
-      <div class="bg-black/40 backdrop-blur px-4 py-2 rounded-lg border border-white/10 flex items-center gap-3">
-        <label class="text-xs text-gray-400 uppercase tracking-wider font-medium">SSP:</label>
+      <div class="bg-terra-overlay/40 backdrop-blur px-4 py-2 rounded-lg border border-terra-divider/10 flex items-center gap-3">
+        <label class="text-xs text-terra-muted uppercase tracking-wider font-medium">SSP:</label>
         <select id="diff-ssp-select" class="geu-select text-xs py-1 min-w-[200px]">
           <option value="" disabled selected>Cargando...</option>
         </select>
       </div>
     </div>
     <div class="relative w-full flex justify-center">
-      <img id="diff-img" src="" alt="Mapa de diferencias" class="rounded-xl border border-white/10 max-w-full shadow-2xl hidden" />
-      <div id="diff-placeholder" class="geu-card w-full max-w-4xl h-96 flex flex-col items-center justify-center text-gray-500 gap-3">
+      <img id="diff-img" src="" alt="Mapa de diferencias" class="w-full max-w-4xl h-auto rounded-xl shadow-2xl hidden -scale-y-100" style="opacity: 0.85;">
+      <div id="diff-placeholder" class="geu-card w-full max-w-4xl h-[500px] flex flex-col items-center justify-center text-terra-subtle gap-3">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
         <span>Selecciona un período y un SSP para ver el mapa de diferencias.</span>
-        <span class="text-xs text-gray-600">Los archivos PNG deben estar en <code>public/web/data/species/{especie}/{algoritmo}/diff/</code></span>
+        <span class="text-xs text-terra-dim">Los archivos PNG deben estar en <code>public/web/data/species/{especie}/{algoritmo}/diff/</code></span>
       </div>
     </div>
     <div class="flex justify-center gap-6 mt-6">
-      <div class="flex items-center gap-2 text-sm text-gray-300"><span class="inline-block w-4 h-4 rounded bg-red-500"></span> Pérdida de hábitat</div>
-      <div class="flex items-center gap-2 text-sm text-gray-300"><span class="inline-block w-4 h-4 rounded bg-green-500"></span> Ganancia de hábitat</div>
-      <div class="flex items-center gap-2 text-sm text-gray-300"><span class="inline-block w-4 h-4 rounded bg-gray-500"></span> Sin cambio</div>
+      <div class="flex items-center gap-2 text-sm text-terra-muted"><span class="inline-block w-4 h-4 rounded bg-red-500"></span> Pérdida de hábitat</div>
+      <div class="flex items-center gap-2 text-sm text-terra-muted"><span class="inline-block w-4 h-4 rounded bg-green-500"></span> Ganancia de hábitat</div>
+      <div class="flex items-center gap-2 text-sm text-terra-muted"><span class="inline-block w-4 h-4 rounded bg-gray-500"></span> Sin cambio</div>
     </div>
     <div id="diff-tables" class="mt-12 max-w-4xl mx-auto"></div>
   `;
@@ -44,6 +53,10 @@ export async function initDiffMap(containerId) {
   const periodSelect = container.querySelector('#diff-period-select');
   const sspSelect = container.querySelector('#diff-ssp-select');
   const tablesContainer = container.querySelector('#diff-tables');
+  const diffModelInfo = container.querySelector('#diff-model-info');
+  const diffInfoSpecies = container.querySelector('#diff-info-species');
+  const diffInfoAlgo = container.querySelector('#diff-info-algo');
+  const diffInfoScenario = container.querySelector('#diff-info-scenario');
 
   let index;
   try {
@@ -71,21 +84,21 @@ export async function initDiffMap(containerId) {
   }
 
   function pctColorClass(v) {
-    if (v == null) return 'text-gray-400';
-    if (v < 0) return 'text-red-400';
-    if (v > 0) return 'text-green-400';
-    return 'text-gray-400';
+    if (v == null) return 'text-terra-muted';
+    if (v < 0) return 'text-red-500';
+    if (v > 0) return 'text-green-500';
+    return 'text-terra-muted';
   }
 
   function tableHeader(title, description) {
     return `
       <div class="mt-8">
         <div class="flex items-center gap-3 mb-2">
-          <div class="h-px flex-1 bg-gray-600"></div>
-          <h3 class="text-sm font-semibold text-gray-300 uppercase tracking-wider whitespace-nowrap">${title}</h3>
-          <div class="h-px flex-1 bg-gray-600"></div>
+          <div class="h-px flex-1 bg-terra-divider"></div>
+          <h3 class="text-sm font-semibold text-terra-muted uppercase tracking-wider whitespace-nowrap">${title}</h3>
+          <div class="h-px flex-1 bg-terra-divider"></div>
         </div>
-        <p class="text-xs text-stone-500 text-center mb-3 max-w-2xl mx-auto">${description}</p>
+        <p class="text-xs text-terra-subtle text-center mb-3 max-w-2xl mx-auto">${description}</p>
       </div>
     `;
   }
@@ -109,65 +122,62 @@ export async function initDiffMap(containerId) {
     }
     const threshold = data.threshold ?? 0.5;
 
-    // Tabla 1: Área por umbral
     let html = tableHeader(`Área por umbral (${threshold})`, 'Número de píxeles cuya probabilidad de presencia es igual o superior al umbral indicado. Representa el área donde el modelo considera probable encontrar la especie.');
     html += `<table class="w-full text-sm text-left border-collapse">
       <thead>
-        <tr class="border-b border-gray-600 text-gray-400">
+        <tr class="border-b border-terra-divider text-terra-muted">
           <th class="py-2 px-3 font-medium">Escenario</th>
           <th class="py-2 px-3 font-medium text-right">Área (km2)</th>
           <th class="py-2 px-3 font-medium text-right">Cambio (%)</th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-gray-700/60">
-        <tr class="text-gray-200">
+      <tbody class="divide-y divide-terra-divider/60">
+        <tr class="text-terra-text">
           <td class="py-2 px-3">Actual</td>
           <td class="py-2 px-3 text-right font-mono">${fmtNum(current.occupiedAreaKm2)}</td>
-          <td class="py-2 px-3 text-right font-mono text-gray-400">-</td>
+          <td class="py-2 px-3 text-right font-mono text-terra-muted">-</td>
         </tr>`;
 
     futures.forEach(f => {
-      html += `<tr class="text-gray-200">
+      html += `<tr class="text-terra-text">
         <td class="py-2 px-3">SDM ${f.scenario} ${f.period?.replace(/-/g, '')}</td>
         <td class="py-2 px-3 text-right font-mono">${fmtNum(f.occupiedAreaKm2)}</td>
         <td class="py-2 px-3 text-right font-mono ${pctColorClass(f.occupiedAreaChangePct)}">${fmtPct(f.occupiedAreaChangePct)}</td>
       </tr>`;
     });
 
-    html += `</tbody></table>`;
+    html += '</tbody></table>';
 
-    // Tabla 2: Área continua ponderada
     html += tableHeader('Área continua ponderada', 'Suma de todas las probabilidades de presencia de todos los píxeles, sin aplicar umbral. Cuenta tanto píxeles con alta como baja probabilidad, ponderando su contribución según el valor de probabilidad.');
     html += `<table class="w-full text-sm text-left border-collapse">
       <thead>
-        <tr class="border-b border-gray-600 text-gray-400">
+        <tr class="border-b border-terra-divider text-terra-muted">
           <th class="py-2 px-3 font-medium">Escenario</th>
           <th class="py-2 px-3 font-medium text-right">Área cont. (km2)</th>
           <th class="py-2 px-3 font-medium text-right">Cambio (%)</th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-gray-700/60">
-        <tr class="text-gray-200">
+      <tbody class="divide-y divide-terra-divider/60">
+        <tr class="text-terra-text">
           <td class="py-2 px-3">Actual</td>
           <td class="py-2 px-3 text-right font-mono">${fmtNum(current.continuousAreaKm2)}</td>
-          <td class="py-2 px-3 text-right font-mono text-gray-400">-</td>
+          <td class="py-2 px-3 text-right font-mono text-terra-muted">-</td>
         </tr>`;
 
     futures.forEach(f => {
-      html += `<tr class="text-gray-200">
+      html += `<tr class="text-terra-text">
         <td class="py-2 px-3">SDM ${f.scenario} ${f.period?.replace(/-/g, '')}</td>
         <td class="py-2 px-3 text-right font-mono">${fmtNum(f.continuousAreaKm2)}</td>
         <td class="py-2 px-3 text-right font-mono ${pctColorClass(f.continuousAreaChangePct)}">${fmtPct(f.continuousAreaChangePct)}</td>
       </tr>`;
     });
 
-    html += `</tbody></table>`;
+    html += '</tbody></table>';
 
-    // Tabla 3: Balance de hábitat continuo
     html += tableHeader('Balance de hábitat continuo', 'Comparación entre el escenario actual y cada escenario futuro. Muestra el área estimada de pérdida (rojo), ganancia (verde) y hábitat estable (gris), junto con el cambio neto porcentual.');
     html += `<table class="w-full text-sm text-left border-collapse">
       <thead>
-        <tr class="border-b border-gray-600 text-gray-400">
+        <tr class="border-b border-terra-divider text-terra-muted">
           <th class="py-2 px-3 font-medium">Escenario</th>
           <th class="py-2 px-3 font-medium text-right">Pérdida</th>
           <th class="py-2 px-3 font-medium text-right">Ganancia</th>
@@ -175,26 +185,26 @@ export async function initDiffMap(containerId) {
           <th class="py-2 px-3 font-medium text-right">Cambio neto</th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-gray-700/60">
-        <tr class="text-gray-200">
+      <tbody class="divide-y divide-terra-divider/60">
+        <tr class="text-terra-text">
           <td class="py-2 px-3">Actual</td>
-          <td class="py-2 px-3 text-right font-mono text-gray-400">${fmtNum(0)}</td>
-          <td class="py-2 px-3 text-right font-mono text-gray-400">${fmtNum(0)}</td>
+          <td class="py-2 px-3 text-right font-mono text-terra-muted">${fmtNum(0)}</td>
+          <td class="py-2 px-3 text-right font-mono text-terra-muted">${fmtNum(0)}</td>
           <td class="py-2 px-3 text-right font-mono">${fmtNum(current.continuousAreaKm2)}</td>
-          <td class="py-2 px-3 text-right font-mono text-gray-400">+0,0%</td>
+          <td class="py-2 px-3 text-right font-mono text-terra-muted">+0,0%</td>
         </tr>`;
 
     futures.forEach(f => {
-      html += `<tr class="text-gray-200">
+      html += `<tr class="text-terra-text">
         <td class="py-2 px-3">SDM ${f.scenario} ${f.period?.replace(/-/g, '')}</td>
-        <td class="py-2 px-3 text-right font-mono text-red-400">${fmtNum(f.habitatLossKm2)}</td>
-        <td class="py-2 px-3 text-right font-mono text-green-400">${fmtNum(f.habitatGainKm2)}</td>
+        <td class="py-2 px-3 text-right font-mono text-red-500">${fmtNum(f.habitatLossKm2)}</td>
+        <td class="py-2 px-3 text-right font-mono text-green-500">${fmtNum(f.habitatGainKm2)}</td>
         <td class="py-2 px-3 text-right font-mono">${fmtNum(f.habitatStableKm2)}</td>
         <td class="py-2 px-3 text-right font-mono ${pctColorClass(f.netChangePct)}">${fmtPct(f.netChangePct)}</td>
       </tr>`;
     });
 
-    html += `</tbody></table>`;
+    html += '</tbody></table>';
 
     tablesContainer.innerHTML = html;
   }
@@ -243,7 +253,7 @@ export async function initDiffMap(containerId) {
     sspSelect.innerHTML = options;
   }
 
-  function loadDiffImage(speciesId, algoId, periodId, sspId) {
+  function updateDiffImage(speciesId, algoId, periodId, sspId) {
     const path = getDiffPath(index, speciesId, algoId, sspId, periodId);
     if (!path) {
       img.classList.add('hidden');
@@ -270,18 +280,24 @@ export async function initDiffMap(containerId) {
     if (!model) return;
     currentModel = model;
 
+    if (diffModelInfo) diffModelInfo.classList.remove('hidden');
+    if (diffInfoSpecies) diffInfoSpecies.textContent = model.species?.label || '—';
+    if (diffInfoAlgo) diffInfoAlgo.textContent = model.algorithm?.label || '—';
+    if (diffInfoScenario) {
+      const periodLabel = model.period?.label || '';
+      const scenarioLabel = model.scenario?.label || '';
+      diffInfoScenario.textContent = periodLabel ? `${scenarioLabel} · ${periodLabel}` : scenarioLabel;
+    }
+
     const ssps = model.algorithm?.ssps || [];
     const algoPeriods = model.algorithm?.periods || allPeriods.map(p => p.id);
     const availablePeriods = allPeriods.filter(p => algoPeriods.includes(p.id));
 
-    // Extraer period/ssp del escenario actual
     const { periodId: scenarioPeriodId, sspId: scenarioSspId } = extractPeriodAndSsp(model.scenario.id);
 
-    // Determinar qué valores usar
     const defaultPeriodId = forcePeriodId || scenarioPeriodId || currentPeriodId || availablePeriods[availablePeriods.length - 1]?.id;
     const defaultSspId = forceSspId || scenarioSspId || currentSspId || ssps[0]?.id;
 
-    // Actualizar selects solo si cambió el algoritmo/especie
     const prevPeriodOptions = Array.from(periodSelect.options).map(o => o.value);
     const newPeriodIds = availablePeriods.map(p => p.id);
     const periodsChanged = prevPeriodOptions.length !== newPeriodIds.length || prevPeriodOptions.some((id, i) => id !== newPeriodIds[i]);
@@ -298,7 +314,6 @@ export async function initDiffMap(containerId) {
       updateSspOptions(ssps, defaultSspId);
     }
 
-    // Asegurar que los valores estén seleccionados
     if (periodSelect.value !== defaultPeriodId) periodSelect.value = defaultPeriodId;
     if (sspSelect.value !== defaultSspId) sspSelect.value = defaultSspId;
 
@@ -306,14 +321,13 @@ export async function initDiffMap(containerId) {
     currentSspId = defaultSspId;
 
     if (currentPeriodId && currentSspId) {
-      loadDiffImage(model.species.id, model.algorithm.id, currentPeriodId, currentSspId);
+      updateDiffImage(model.species.id, model.algorithm.id, currentPeriodId, currentSspId);
       loadTables(model.species.id, model.algorithm.id, currentPeriodId, ssps);
     } else {
       tablesContainer.innerHTML = '';
       img.classList.add('hidden');
       placeholder.classList.remove('hidden');
       placeholder.querySelector('span').textContent = 'Selecciona un período y un SSP para ver las diferencias.';
-      tablesContainer.innerHTML = '';
     }
   }
 
@@ -321,16 +335,12 @@ export async function initDiffMap(containerId) {
     if (!currentModel) return;
     currentPeriodId = periodSelect.value;
     currentSspId = sspSelect.value;
-    loadDiffImage(currentModel.species.id, currentModel.algorithm.id, currentPeriodId, currentSspId);
+    updateDiffImage(currentModel.species.id, currentModel.algorithm.id, currentPeriodId, currentSspId);
     loadTables(currentModel.species.id, currentModel.algorithm.id, currentPeriodId, currentModel.algorithm?.ssps || []);
   }
 
-  if (periodSelect) {
-    periodSelect.addEventListener('change', onSelectionChange);
-  }
-  if (sspSelect) {
-    sspSelect.addEventListener('change', onSelectionChange);
-  }
+  if (periodSelect) periodSelect.addEventListener('change', onSelectionChange);
+  if (sspSelect) sspSelect.addEventListener('change', onSelectionChange);
 
   window.addEventListener('model-changed', (e) => render(e.detail));
 }

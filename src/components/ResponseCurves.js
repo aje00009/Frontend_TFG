@@ -1,5 +1,6 @@
 import { loadCsv } from '../utils/dataLoader.js';
 import { loadSpeciesIndex, getCurvesPath } from '../utils/config.js';
+import { getPlotlyThemeColors } from '../utils/theme.js';
 import Plotly from 'plotly.js-dist-min';
 
 const BIO_DESCRIPTIONS = {
@@ -51,17 +52,17 @@ export async function initResponseCurves(containerId) {
 
   container.innerHTML = `
     <h2 class="text-3xl font-bold mb-2 text-center">Curvas de Respuesta</h2>
-    <p class="text-center text-gray-400 mb-6 max-w-2xl mx-auto">Muestra cómo cambia la probabilidad de presencia de la especie al variar una única variable bioclimática, manteniendo el resto en sus valores medios de entrenamiento. Selecciona una variable para explorar su efecto.</p>
+    <p class="text-center text-terra-muted mb-6 max-w-2xl mx-auto">Muestra cómo cambia la probabilidad de presencia de la especie al variar una única variable bioclimática, manteniendo el resto en sus valores medios de entrenamiento. Selecciona una variable para explorar su efecto.</p>
     <div class="flex flex-col items-center mb-6 gap-2">
       <div class="flex justify-center">
         <select id="bio-select" class="geu-select min-w-[240px]">
           <option value="" disabled selected>Selecciona una variable BIO</option>
         </select>
       </div>
-      <p id="bio-desc" class="text-sm text-stone-400 text-center max-w-lg min-h-[1.25rem] transition-opacity duration-200"></p>
+      <p id="bio-desc" class="text-sm text-terra-muted text-center max-w-lg min-h-[1.25rem] transition-opacity duration-200"></p>
     </div>
     <div id="plotly-curve" class="w-full h-[500px] rounded-xl overflow-hidden"></div>
-    <div id="curves-info" class="mt-6 text-center text-gray-400 text-sm hidden">
+    <div id="curves-info" class="mt-6 text-center text-terra-muted text-sm hidden">
       No se encontró el CSV de curvas de respuesta. Asegúrate de haber copiado los archivos exportados a <code>public/web/data/</code>.
     </div>
   `;
@@ -150,15 +151,16 @@ export async function initResponseCurves(containerId) {
       });
     }
 
+    const theme = getPlotlyThemeColors();
     const layout = {
-      paper_bgcolor: 'rgba(0,0,0,0)',
-      plot_bgcolor: '#2b2b2b',
-      font: { color: '#e5e7eb' },
+      paper_bgcolor: theme.paperBg,
+      plot_bgcolor: theme.plotBg,
+      font: { color: theme.text },
       margin: { t: 40, r: 20, b: 50, l: 60 },
-      xaxis: { title: variable + ' — ' + (BIO_UNITS[variable] || 'valor'), gridcolor: '#404040', zerolinecolor: '#404040' },
-      yaxis: { title: 'Probabilidad de presencia', range: [0, 1], gridcolor: '#404040', zerolinecolor: '#404040' },
+      xaxis: { title: variable + ' — ' + (BIO_UNITS[variable] || 'valor'), gridcolor: theme.grid, zerolinecolor: theme.zeroline },
+      yaxis: { title: 'Probabilidad de presencia', range: [0, 1], gridcolor: theme.grid, zerolinecolor: theme.zeroline },
       shapes,
-      legend: { x: 0.02, y: 0.98, bgcolor: 'rgba(43,43,43,0.8)' },
+      legend: { x: 0.02, y: 0.98, bgcolor: theme.legendBg },
     };
 
     Plotly.newPlot(plotDiv, traces, layout, { responsive: true, displayModeBar: false });
@@ -170,4 +172,8 @@ export async function initResponseCurves(containerId) {
     draw(val);
   });
   window.addEventListener('model-changed', (e) => load(e.detail));
+
+  window.addEventListener('theme-changed', () => {
+    if (currentVariable) draw(currentVariable);
+  });
 }

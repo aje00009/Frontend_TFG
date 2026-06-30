@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" class="dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
@@ -11,7 +11,23 @@
     <!-- Cesium assets deben cargarse ANTES de importar el módulo JS -->
     <script>window.CESIUM_BASE_URL = 'https://unpkg.com/cesium@1.118.0/Build/Cesium/';</script>
   </head>
-  <body class="bg-terra-bg text-stone-200 antialiased overflow-x-hidden">
+  <body class="bg-terra-bg text-terra-text antialiased overflow-x-hidden">
+    <div id="initial-loader" style="position:fixed; inset:0; z-index:99999; background:#0f172a; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1rem; color:white; font-family:sans-serif; transition:opacity 0.3s;">
+      <div style="width:40px; height:40px; border:4px solid rgba(255,255,255,0.2); border-top-color:#2dd4bf; border-radius:50%; animation:initial-spin 1s linear infinite;"></div>
+      <span>Cargando TerraPredict...</span>
+    </div>
+    <style>
+      @keyframes initial-spin { to { transform: rotate(360deg); } }
+    </style>
+    <script>
+      window.addEventListener('DOMContentLoaded', () => {
+        const loader = document.getElementById('initial-loader');
+        if (loader) {
+          loader.style.opacity = '0';
+          setTimeout(() => loader.remove(), 300);
+        }
+      });
+    </script>
     <div id="app">
       
       <!-- ========================================== -->
@@ -21,16 +37,20 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <a href="#top" class="text-lg font-bold tracking-tight flex items-center gap-2 group">
             <span class="text-2xl group-hover:scale-110 transition-transform duration-300">🌍</span>
-            <span class="text-white">Terra<span class="text-terra-accent">Predict</span></span>
+            <span class="text-terra-text">Terra<span class="text-terra-accent">Predict</span></span>
           </a>
           
           <!-- Desktop links -->
           <div class="hidden md:flex items-center gap-1">
+            <div id="theme-toggle" class="mr-1"></div>
             <a href="#visor" class="terra-btn-ghost">Visor</a>
             <a href="#analisis" class="terra-btn-ghost">Análisis</a>
             <a href="#cambio-climatico" class="terra-btn-ghost">Cambio Climático</a>
             <a href="#descargas" class="terra-btn-ghost">Descargas</a>
           </div>
+
+          <!-- Theme toggle móvil -->
+          <div id="theme-toggle-mobile" class="md:hidden mr-2"></div>
 
           <!-- Mobile hamburger (funcionalidad básica con JS) -->
           <button id="mobile-menu-btn" class="md:hidden terra-btn-ghost p-2">
@@ -42,10 +62,10 @@
 
         <!-- Mobile menu panel -->
         <div id="mobile-menu" class="md:hidden hidden border-t border-terra-border bg-terra-bg/95 backdrop-blur-xl px-6 py-4 space-y-2">
-          <a href="#visor" class="block px-4 py-2 rounded-lg text-stone-300 hover:text-terra-accent hover:bg-terra-accent/10 transition-colors">Visor</a>
-          <a href="#analisis" class="block px-4 py-2 rounded-lg text-stone-300 hover:text-terra-accent hover:bg-terra-accent/10 transition-colors">Análisis</a>
-          <a href="#cambio-climatico" class="block px-4 py-2 rounded-lg text-stone-300 hover:text-terra-accent hover:bg-terra-accent/10 transition-colors">Cambio Climático</a>
-          <a href="#descargas" class="block px-4 py-2 rounded-lg text-stone-300 hover:text-terra-accent hover:bg-terra-accent/10 transition-colors">Descargas</a>
+          <a href="#visor" class="block px-4 py-2 rounded-lg text-terra-muted hover:text-terra-accent hover:bg-terra-accent/10 transition-colors">Visor</a>
+          <a href="#analisis" class="block px-4 py-2 rounded-lg text-terra-muted hover:text-terra-accent hover:bg-terra-accent/10 transition-colors">Análisis</a>
+          <a href="#cambio-climatico" class="block px-4 py-2 rounded-lg text-terra-muted hover:text-terra-accent hover:bg-terra-accent/10 transition-colors">Cambio Climático</a>
+          <a href="#descargas" class="block px-4 py-2 rounded-lg text-terra-muted hover:text-terra-accent hover:bg-terra-accent/10 transition-colors">Descargas</a>
         </div>
       </nav>
 
@@ -69,7 +89,7 @@
         <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between mb-3 px-1 gap-2">
           <div id="viewer-mode-toggle" class="flex gap-2 bg-terra-surface/80 backdrop-blur-md rounded-xl p-1 border border-terra-border">
             <button id="mode-btn-2d" class="flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-medium bg-terra-accent text-terra-bg shadow-sm transition-all">2D</button>
-            <button id="mode-btn-3d" class="flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-medium text-stone-300 hover:text-white hover:bg-white/5 transition-all">3D</button>
+            <button id="mode-btn-3d" class="flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-medium text-terra-muted hover:text-terra-text hover:bg-terra-text/5 transition-all">3D</button>
           </div>
           <div class="flex gap-2 justify-end">
             <button id="btn-export-png" class="terra-btn-outline text-sm flex items-center gap-1.5" title="Exportar imagen">
@@ -86,19 +106,19 @@
           <button id="ssp-info-toggle" class="w-full flex items-center justify-between px-5 py-3 bg-terra-surface rounded-xl border border-terra-border hover:border-terra-accent/40 transition-all text-left">
             <div class="flex items-center gap-3">
               <svg class="w-5 h-5 text-terra-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-              <span class="text-sm font-medium text-stone-200">¿Qué representan los escenarios climáticos?</span>
+              <span class="text-sm font-medium text-terra-text">¿Qué representan los escenarios climáticos?</span>
             </div>
-            <svg id="ssp-chevron" class="w-4 h-4 text-stone-500 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            <svg id="ssp-chevron" class="w-4 h-4 text-terra-subtle transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
           </button>
-          <div id="ssp-info-panel" class="hidden mt-2 px-5 py-4 bg-terra-surface rounded-xl border border-terra-border text-sm text-stone-400 leading-relaxed">
-            <p class="mb-3">Los escenarios climáticos que ves en esta plataforma se basan en los <strong class="text-stone-200">Shared Socioeconomic Pathways (SSP)</strong>, que describen posibles futuros según cómo evolucionen la sociedad, la economía y las políticas medioambientales a nivel mundial.</p>
+          <div id="ssp-info-panel" class="hidden mt-2 px-5 py-4 bg-terra-surface rounded-xl border border-terra-border text-sm text-terra-muted leading-relaxed">
+            <p class="mb-3">Los escenarios climáticos que ves en esta plataforma se basan en los <strong class="text-terra-text">Shared Socioeconomic Pathways (SSP)</strong>, que describen posibles futuros según cómo evolucionen la sociedad, la economía y las políticas medioambientales a nivel mundial.</p>
             <ul class="space-y-2 mb-3 list-disc list-inside">
-              <li><strong class="text-stone-200">SSP1-2.6 (Sostenibilidad):</strong> desarrollo sostenible, desigualdad reducida y transición rápida hacia energías limpias.</li>
-              <li><strong class="text-stone-200">SSP2-4.5 (Intermedio):</strong> evolución moderada, sin cambios drásticos en políticas ni en el modelo de desarrollo actual.</li>
-              <li><strong class="text-stone-200">SSP3-7.0 (Rivalidad regional):</strong> fragmentación geopolítica, baja cooperación internacional y uso intensivo de combustibles fósiles.</li>
-              <li><strong class="text-stone-200">SSP5-8.5 (Combustibles fósiles):</strong> crecimiento económico acelerado basado en combustibles fósiles, con escasa preocupación por el medio ambiente.</li>
+              <li><strong class="text-terra-text">SSP1-2.6 (Sostenibilidad):</strong> desarrollo sostenible, desigualdad reducida y transición rápida hacia energías limpias.</li>
+              <li><strong class="text-terra-text">SSP2-4.5 (Intermedio):</strong> evolución moderada, sin cambios drásticos en políticas ni en el modelo de desarrollo actual.</li>
+              <li><strong class="text-terra-text">SSP3-7.0 (Rivalidad regional):</strong> fragmentación geopolítica, baja cooperación internacional y uso intensivo de combustibles fósiles.</li>
+              <li><strong class="text-terra-text">SSP5-8.5 (Combustibles fósiles):</strong> crecimiento económico acelerado basado en combustibles fósiles, con escasa preocupación por el medio ambiente.</li>
             </ul>
-            <p>Los periodos (2021-2040, 2041-2060, 2061-2080, 2081-2100) indican <strong class="text-stone-200">cuándo se proyectan esas condiciones</strong>. Por ejemplo, "SSP1-2.6 (2021-2040)" muestra el hábitat modelado para el periodo 2021-2040 bajo un escenario de sostenibilidad.</p>
+            <p>Los periodos (2021-2040, 2041-2060, 2061-2080, 2081-2100) indican <strong class="text-terra-text">cuándo se proyectan esas condiciones</strong>. Por ejemplo, "SSP1-2.6 (2021-2040)" muestra el hábitat modelado para el periodo 2021-2040 bajo un escenario de sostenibilidad.</p>
           </div>
         </div>
 
@@ -132,7 +152,7 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <!-- Métricas -->
           <div class="terra-card reveal min-h-[420px] flex flex-col">
-            <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <h3 class="text-lg font-semibold text-terra-text mb-4 flex items-center gap-2">
               <svg class="w-5 h-5 text-terra-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
               Métricas
             </h3>
@@ -141,7 +161,7 @@
 
           <!-- Curvas de Respuesta -->
           <div class="terra-card reveal min-h-[420px] flex flex-col">
-            <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <h3 class="text-lg font-semibold text-terra-text mb-4 flex items-center gap-2">
               <svg class="w-5 h-5 text-terra-accent-warm" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
               Curvas de Respuesta
             </h3>
@@ -150,7 +170,7 @@
 
           <!-- Histograma de Probabilidad -->
           <div class="terra-card reveal lg:col-span-2 min-h-[380px] flex flex-col">
-            <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <h3 class="text-lg font-semibold text-terra-text mb-4 flex items-center gap-2">
               <svg class="w-5 h-5 text-terra-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
               Histograma de Probabilidad
             </h3>
@@ -171,7 +191,7 @@
         <div class="grid grid-cols-1 gap-6">
           <!-- Mapa de Diferencias -->
           <div class="terra-card reveal min-h-[520px] flex flex-col">
-            <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <h3 class="text-lg font-semibold text-terra-text mb-4 flex items-center gap-2">
               <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 7m0 13V7"></path></svg>
               Mapa de Diferencias
             </h3>
@@ -180,7 +200,7 @@
 
           <!-- Comparador Lado a Lado -->
           <div class="terra-card reveal min-h-[520px] flex flex-col overflow-hidden">
-            <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <h3 class="text-lg font-semibold text-terra-text mb-4 flex items-center gap-2">
               <svg class="w-5 h-5 text-terra-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
               Comparador Lado a Lado
             </h3>
@@ -210,12 +230,12 @@
         <div class="max-w-7xl mx-auto px-6">
           <div class="flex items-center justify-center gap-2 mb-4 text-2xl font-bold">
             <span>🌍</span>
-            <span class="text-white">Terra<span class="text-terra-accent">Predict</span></span>
+            <span class="text-terra-text">Terra<span class="text-terra-accent">Predict</span></span>
           </div>
-          <p class="text-stone-500 max-w-lg mx-auto mb-6">
+          <p class="text-terra-subtle max-w-lg mx-auto mb-6">
             Plataforma de predicción de distribución de especies bajo escenarios climáticos futuros.
           </p>
-          <div class="flex justify-center gap-6 text-sm text-stone-600">
+          <div class="flex justify-center gap-6 text-sm text-terra-dim">
             <span>© 2025 TerraPredict</span>
           </div>
         </div>

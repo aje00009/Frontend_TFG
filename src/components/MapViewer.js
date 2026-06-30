@@ -14,6 +14,7 @@ import {
   classifyGEUColor,
   loadRasterBBox,
 } from '../utils/pickerUtils.js';
+import { getCesiumBackgroundColor } from '../utils/theme.js';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 
 const BASE_LAYERS = {
@@ -64,7 +65,7 @@ export async function initMapViewer(containerId) {
   });
 
   viewer.scene.globe.depthTestAgainstTerrain = true;
-  viewer.scene.backgroundColor = Cesium.Color.fromCssColorString('#232323');
+  viewer.scene.backgroundColor = Cesium.Color.fromCssColorString(getCesiumBackgroundColor());
 
   let heatmapEntity = null;
   let currentPngUrl = null;
@@ -75,17 +76,21 @@ export async function initMapViewer(containerId) {
 
   // === LEYENDA ===
   const legendDiv = document.createElement('div');
-  legendDiv.className = 'absolute left-6 z-10 bg-black/60 backdrop-blur px-3 py-2 rounded-lg border border-white/10 pointer-events-none flex flex-col items-center gap-1';
+  legendDiv.className = 'absolute left-6 z-10 bg-terra-overlay/60 backdrop-blur px-3 py-2 rounded-lg border border-terra-divider/10 pointer-events-none flex flex-col items-center gap-1';
   legendDiv.style.bottom = '200px';
   legendDiv.innerHTML = `
-    <div class="text-[10px] text-gray-400 font-medium">Probabilidad</div>
+    <div class="text-[10px] text-terra-muted font-medium">Probabilidad</div>
     <div class="flex gap-1">
-      <canvas id="map-legend-canvas" width="20" height="150" class="rounded border border-white/10"></canvas>
-      <div class="flex flex-col justify-between text-[10px] text-gray-300 font-mono py-0.5">
+      <canvas id="map-legend-canvas" width="20" height="150" class="rounded border border-terra-divider/10"></canvas>
+      <div class="flex flex-col justify-between text-[10px] text-terra-muted font-mono py-0.5">
         <span>1.0</span>
         <span>0.5</span>
         <span>0.0</span>
       </div>
+    </div>
+    <div class="mt-2 flex items-center justify-center gap-2">
+      <span class="inline-block w-3 h-3 rounded-full bg-amber-400 border border-terra-divider/30"></span>
+      <span class="text-[10px] text-terra-muted">Ocurrencias</span>
     </div>
   `;
   container.appendChild(legendDiv);
@@ -93,17 +98,24 @@ export async function initMapViewer(containerId) {
   // === TOOLTIP DE PICKING (posición junto al click) ===
   const pickerDiv = document.createElement('div');
   pickerDiv.id = 'map-picker-card';
-  pickerDiv.className = 'absolute z-10 bg-black/80 backdrop-blur px-3 py-2 rounded-lg border border-white/10 text-white text-xs hidden max-w-[220px] pointer-events-none';
+  pickerDiv.className = 'absolute z-10 bg-terra-overlay/80 backdrop-blur px-3 py-2 rounded-lg border border-terra-divider/10 text-terra-text text-xs hidden max-w-[220px] pointer-events-none';
   pickerDiv.innerHTML = `
-    <div class="font-semibold text-teal-400 mb-1">Punto seleccionado</div>
-    <div id="map-picker-coords" class="font-mono text-[11px] text-gray-300 leading-tight"></div>
-    <div id="map-picker-elev" class="font-mono text-[11px] text-gray-300 mt-1"></div>
+    <div class="font-semibold text-terra-accent mb-1">Punto seleccionado</div>
+    <div id="map-picker-coords" class="font-mono text-[11px] text-terra-muted leading-tight"></div>
+    <div id="map-picker-elev" class="font-mono text-[11px] text-terra-muted mt-1"></div>
     <div class="flex items-center gap-2 mt-1">
-      <div id="map-picker-color" class="w-4 h-4 rounded border border-white/20 shrink-0"></div>
-      <span id="map-picker-hex" class="font-mono text-[11px] text-gray-300"></span>
+      <div id="map-picker-color" class="w-4 h-4 rounded border border-terra-divider/20 shrink-0"></div>
+      <span id="map-picker-hex" class="font-mono text-[11px] text-terra-muted"></span>
     </div>
   `;
   container.appendChild(pickerDiv);
+
+  // Coordenadas del cursor en tiempo real
+  const coordsDiv = document.createElement('div');
+  coordsDiv.id = 'map-coords';
+  coordsDiv.className = 'absolute bottom-2 right-2 z-10 bg-terra-overlay/60 backdrop-blur px-2 py-1 rounded text-[10px] text-terra-muted font-mono pointer-events-none';
+  coordsDiv.textContent = 'Lat: —  Lon: —  Elev: —';
+  container.appendChild(coordsDiv);
 
   // Indicador visual del punto seleccionado
   let pickerMarker = null;
@@ -197,24 +209,41 @@ export async function initMapViewer(containerId) {
 
   viewer.screenSpaceEventHandler.setInputAction(handleMapClick, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
+  // Coordenadas del cursor en tiempo real
+  const moveHandler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+  moveHandler.setInputAction((movement) => {
+    if (!coordsDiv) return;
+    const ray = viewer.camera.getPickRay(movement.endPosition);
+    const cartesian = viewer.scene.globe.pick(ray, viewer.scene);
+    if (!cartesian) {
+      coordsDiv.textContent = 'Lat: —  Lon: —  Elev: —';
+      return;
+    }
+    const carto = Cesium.Cartographic.fromCartesian(cartesian);
+    const lat = Cesium.Math.toDegrees(carto.latitude);
+    const lon = Cesium.Math.toDegrees(carto.longitude);
+    const elev = viewer.scene.globe.getHeight(carto) ?? carto.height;
+    coordsDiv.textContent = `Lat: ${lat.toFixed(4)}°  Lon: ${lon.toFixed(4)}°  Elev: ${formatElevation(elev)}`;
+  }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+
   // Controles superpuestos
   const controlsDiv = document.createElement('div');
   controlsDiv.className = 'absolute bottom-6 left-6 z-10 flex flex-col gap-3';
   controlsDiv.innerHTML = `
-    <div class="bg-geu-panel/90 backdrop-blur px-4 py-2 rounded-xl border border-white/10 shadow-xl flex items-center gap-2">
-      <label class="text-xs text-gray-400 font-medium">Mapa base:</label>
+    <div class="bg-geu-panel/90 backdrop-blur px-4 py-2 rounded-xl border border-terra-divider/10 shadow-xl flex items-center gap-2">
+      <label class="text-xs text-terra-muted font-medium">Mapa base:</label>
       <select id="base-layer-select" class="geu-select text-xs py-1 min-w-[160px]">
         ${Object.entries(BASE_LAYERS).map(([k, v]) => `<option value="${k}" ${k === 'esri-satellite' ? 'selected' : ''}>${v.label}</option>`).join('')}
       </select>
     </div>
-    <div class="bg-geu-panel/90 backdrop-blur px-4 py-2 rounded-xl border border-white/10 shadow-xl flex items-center gap-2">
-      <label class="text-xs text-gray-400 font-medium">Opacidad heatmap:</label>
-      <input id="heatmap-alpha" type="range" min="0.1" max="1" step="0.05" value="0.55" class="w-32 accent-teal-400">
-      <span id="heatmap-alpha-val" class="text-xs text-teal-400 font-mono w-8 text-right">55%</span>
+    <div class="bg-geu-panel/90 backdrop-blur px-4 py-2 rounded-xl border border-terra-divider/10 shadow-xl flex items-center gap-2">
+      <label class="text-xs text-terra-muted font-medium">Opacidad heatmap:</label>
+      <input id="heatmap-alpha" type="range" min="0.1" max="1" step="0.05" value="0.55" class="w-32 accent-terra-accent">
+      <span id="heatmap-alpha-val" class="text-xs text-terra-accent font-mono w-8 text-right">55%</span>
     </div>
-    <div class="bg-geu-panel/90 backdrop-blur px-4 py-2 rounded-xl border border-white/10 shadow-xl flex items-center gap-2">
-      <input id="show-occurrences" type="checkbox" checked class="w-4 h-4 accent-geu-accent rounded border-white/30">
-      <label for="show-occurrences" class="text-xs text-gray-300 font-medium">Mostrar ocurrencias</label>
+    <div class="bg-geu-panel/90 backdrop-blur px-4 py-2 rounded-xl border border-terra-divider/10 shadow-xl flex items-center gap-2">
+      <input id="show-occurrences" type="checkbox" checked class="w-4 h-4 accent-geu-accent rounded border-terra-divider/30">
+      <label for="show-occurrences" class="text-xs text-terra-muted font-medium">Mostrar ocurrencias</label>
     </div>
   `;
   container.appendChild(controlsDiv);
@@ -358,6 +387,10 @@ export async function initMapViewer(containerId) {
   });
 
   viewer.camera.flyTo({ destination: Cesium.Rectangle.fromDegrees(-10, 35, 5, 45), duration: 0 });
+
+  window.addEventListener('theme-changed', () => {
+    viewer.scene.backgroundColor = Cesium.Color.fromCssColorString(getCesiumBackgroundColor());
+  });
 
   function exportPNG() {
     try {

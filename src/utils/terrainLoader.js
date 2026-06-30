@@ -78,14 +78,15 @@ export function createTerrainGeometry(demData, exaggeration = 1.5) {
   );
 
   // Desplazar vértices en Z según elevación.
-  // Three.js PlaneGeometry genera row=0 en v=0 (sur). Los DEMs se guardan con
-  // row=0=norte, así que invertimos las filas para mantener la orientación geográfica.
+  // Three.js PlaneGeometry genera row=0 en y>0; tras rotar -90° en X ese vértice
+  // corresponde al norte del bbox. Los DEMs se guardan con row=0=norte, así que
+  // el mapeo es directo y tanto el relieve como las texturas north-up quedan
+  // orientados geográficamente correctos.
   const positions = geometry.attributes.position.array;
   for (let row = 0; row < height; row++) {
     for (let col = 0; col < width; col++) {
-      const demRow = height - 1 - row;
-      const idx = demRow * width + col;
-      const vIdx = (row * width + col) * 3;
+      const idx = row * width + col;
+      const vIdx = idx * 3;
       const elev = elevations[idx];
 
       if (!isNaN(elev) && elev > -9999) {

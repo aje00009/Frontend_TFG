@@ -17,7 +17,7 @@ export async function initDashboard(containerId) {
 
   container.innerHTML = `
     <div id="metrics-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
-    <div id="metrics-info" class="mt-8 text-center text-gray-400 text-sm hidden">
+    <div id="metrics-info" class="mt-8 text-center text-terra-muted text-sm hidden">
       No se encontraron métricas. Asegúrate de haber copiado los archivos exportados a <code>public/web/data/</code>.
     </div>
   `;
@@ -71,17 +71,17 @@ export async function initDashboard(containerId) {
       card.innerHTML = `
         <div class="flex items-baseline justify-between mb-2">
           <div class="flex items-center gap-2">
-            <span class="text-sm text-gray-400 font-medium">${meta.label}</span>
+            <span class="text-sm text-terra-muted font-medium">${meta.label}</span>
             <button class="metric-info-btn w-5 h-5 rounded-full bg-terra-accent/20 hover:bg-terra-accent text-terra-accent hover:text-terra-bg flex items-center justify-center transition-all" data-idx="${idx}" title="${meta.fullName}">
               <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
             </button>
           </div>
           <span class="text-xl font-bold">${display}</span>
         </div>
-        <div class="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+        <div class="w-full bg-terra-surface-light rounded-full h-2 overflow-hidden">
           <div class="${color} h-2 rounded-full transition-all duration-700" style="width: ${Number.isFinite(val) ? pctStr : 0}%"></div>
         </div>
-        <div class="metric-desc hidden mt-3 text-xs text-stone-400 leading-relaxed border-t border-terra-border pt-2" id="metric-desc-${idx}">
+        <div class="metric-desc hidden mt-3 text-xs text-terra-muted leading-relaxed border-t border-terra-border pt-2" id="metric-desc-${idx}">
           ${meta.description}
         </div>
       `;

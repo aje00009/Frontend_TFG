@@ -9,14 +9,17 @@ import { initScene3D } from './components/Scene3D.js';
 import { initProbabilityHistogram } from './components/ProbabilityHistogram.js';
 import { initSideBySideComparator } from './components/SideBySideComparator.js';
 import { initDownloads } from './components/Downloads.js';
+import { initThemeToggle } from './components/ThemeToggle.js';
 
 (async function bootstrap() {
   // ==========================================
   // 1. INICIALIZAR COMPONENTES
   // ==========================================
+  initThemeToggle(['theme-toggle', 'theme-toggle-mobile']);
   initHero();
 
   let currentModel = null;
+
   try {
     await initScenarioSelector((model) => {
       currentModel = model;
@@ -66,7 +69,7 @@ import { initDownloads } from './components/Downloads.js';
   const viewer3d = document.getElementById('viewer-3d');
 
   const activeClass2D = 'bg-terra-accent text-terra-bg shadow-sm';
-  const inactiveClass2D = 'text-stone-300 hover:text-white hover:bg-white/5';
+  const inactiveClass2D = 'text-terra-muted hover:text-terra-text hover:bg-terra-text/5';
 
   if (btn2d && btn3d && viewer2d && viewer3d) {
     btn2d.addEventListener('click', () => {

@@ -1,4 +1,5 @@
 import Plotly from 'plotly.js-dist-min';
+import { getPlotlyThemeColors, isDarkTheme } from '../utils/theme.js';
 
 /**
  * Interpola un color del colormap GEU según t ∈ [0, 1]
@@ -35,17 +36,19 @@ export async function initProbabilityHistogram(containerId) {
 
   container.innerHTML = `
     <h2 class="text-3xl font-bold mb-2 text-center">Histograma de Probabilidad</h2>
-    <p class="text-center text-gray-400 mb-6 max-w-2xl mx-auto">Distribución de los valores de probabilidad de presencia en el área de estudio. Cada barra representa la frecuencia de píxeles dentro de un rango de probabilidad, usando la misma escala de colores que el mapa.</p>
+    <p class="text-center text-terra-muted mb-6 max-w-2xl mx-auto">Distribución de los valores de probabilidad de presencia en el área de estudio. Cada barra representa la frecuencia de píxeles dentro de un rango de probabilidad, usando la misma escala de colores que el mapa.</p>
     <div id="hist-plot" class="w-full h-[450px] rounded-xl overflow-hidden"></div>
-    <div id="hist-info" class="mt-6 text-center text-gray-400 text-sm hidden">
+    <div id="hist-info" class="mt-6 text-center text-terra-muted text-sm hidden">
       No se encontraron datos de probabilidad para el escenario seleccionado.
     </div>
   `;
 
   const plotDiv = container.querySelector('#hist-plot');
   const info = container.querySelector('#hist-info');
+  let currentModel = null;
 
   async function load(model) {
+    currentModel = model;
     if (!model || !model.paths?.geojson) {
       info.classList.remove('hidden');
       Plotly.purge(plotDiv);
@@ -106,7 +109,7 @@ export async function initProbabilityHistogram(containerId) {
           y0: 0,
           y1: 1,
           yref: 'paper',
-          line: { color: '#ffffff', width: 2, dash: 'dash' },
+          line: { color: isDarkTheme() ? '#ffffff' : '#111827', width: 2, dash: 'dash' },
         });
       }
 
@@ -118,29 +121,33 @@ export async function initProbabilityHistogram(containerId) {
           yref: 'paper',
           text: `Umbral = ${threshold}`,
           showarrow: false,
-          font: { color: '#ffffff', size: 12 },
+          font: { color: isDarkTheme() ? '#ffffff' : '#111827', size: 12 },
           xanchor: 'left',
         });
       }
 
+      const theme = getPlotlyThemeColors();
+      const lineColor = isDarkTheme() ? '#ffffff' : '#111827';
+      shapes.forEach(s => { if (s.line) s.line.color = lineColor; });
+      annotations.forEach(a => { a.font.color = lineColor; });
       const layout = {
-        paper_bgcolor: 'rgba(0,0,0,0)',
-        plot_bgcolor: '#2b2b2b',
-        font: { color: '#e5e7eb' },
+        paper_bgcolor: theme.paperBg,
+        plot_bgcolor: theme.plotBg,
+        font: { color: theme.text },
         margin: { t: 50, r: 20, b: 50, l: 60 },
         xaxis: {
           title: 'Probabilidad de presencia',
           range: [0, 1],
-          gridcolor: '#404040',
-          zerolinecolor: '#404040',
+          gridcolor: theme.grid,
+          zerolinecolor: theme.zeroline,
           tickmode: 'array',
           tickvals: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
           ticktext: ['0', '0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '1'],
         },
         yaxis: {
           title: 'Frecuencia (número de píxeles)',
-          gridcolor: '#404040',
-          zerolinecolor: '#404040',
+          gridcolor: theme.grid,
+          zerolinecolor: theme.zeroline,
         },
         shapes,
         annotations,
@@ -156,4 +163,8 @@ export async function initProbabilityHistogram(containerId) {
   }
 
   window.addEventListener('model-changed', (e) => load(e.detail));
+
+  window.addEventListener('theme-changed', () => {
+    if (currentModel) load(currentModel);
+  });
 }
